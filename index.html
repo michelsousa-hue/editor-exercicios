@@ -1935,21 +1935,20 @@ async function confirmDelPlano(){
 async function exportPlanoPDF(){
   if(!currentPlanoId){ alert('Seleciona um plano primeiro.'); return; }
   var p = planos.find(function(x){return x.id===currentPlanoId;});
-  if(!p){ alert('Plano não encontrado.'); return; }
+  if(!p){ alert('Plano nao encontrado.'); return; }
   var jsPDF = window.jspdf && window.jspdf.jsPDF;
-  if(!jsPDF){ alert('jsPDF nao disponivel. Verifica a ligacao a internet.'); return; }
+  if(!jsPDF){ alert('jsPDF nao disponivel.'); return; }
 
-  // Ir buscar config do clube ao Supabase
-  var corHex = '#8B1A1A'; var clubeNome = 'Hoquei em Patins'; var clubeLogo = null;
+  // Config do clube
+  var corHex='#8B1A1A', clubeNome='Hoquei em Patins', clubeLogo=null;
   try{
     var cfg = await sb.from('config').select('key,value');
-    var cfgData = Array.isArray(cfg.data) ? cfg.data : [];
-    cfgData.forEach(function(r){
+    (Array.isArray(cfg.data)?cfg.data:[]).forEach(function(r){
       if(r.key==='clube_nome') clubeNome=r.value||clubeNome;
       if(r.key==='clube_cor') corHex=r.value||corHex;
       if(r.key==='clube_logo') clubeLogo=r.value||null;
     });
-  } catch(e){ console.warn('Config nao carregada:', e); }
+  }catch(e){}
 
   function hexToRgb(hex){
     var r=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -1957,96 +1956,132 @@ async function exportPlanoPDF(){
   }
   var cor = hexToRgb(corHex);
 
-  var doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  var W=297,H=210,M=10;
+  // Converter SVG para PNG
+  function svgToPng(svgStr, w, h){
+    return new Promise(function(resolve){
+      try{
+        var blob=new Blob([svgStr],{type:'image/svg+xml'});
+        var url=URL.createObjectURL(blob);
+        var img=new Image();
+        img.onload=function(){
+          var cv=document.createElement('canvas');
+          cv.width=w; cv.height=h;
+          var ctx=cv.getContext('2d');
+          ctx.fillStyle='#2a2a2a'; ctx.fillRect(0,0,w,h);
+          ctx.drawImage(img,0,0,w,h);
+          URL.revokeObjectURL(url);
+          resolve(cv.toDataURL('image/png'));
+        };
+        img.onerror=function(){ URL.revokeObjectURL(url); resolve(null); };
+        img.src=url;
+      }catch(e){ resolve(null); }
+    });
+  }
+
+  var exs = p.exercicios||[];
+
+  // Pre-converter SVGs
+  var svgImages={};
+  await Promise.all(exs.map(function(ex){
+    if(!ex.svg_data) return Promise.resolve();
+    return svgToPng(ex.svg_data,680,420).then(function(png){ svgImages[ex.letra]=png; });
+  }));
+
+  // Portrait A4
+  var doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  var W=210, H=297, M=10;
 
   // Header
   doc.setFillColor(cor[0],cor[1],cor[2]);
   doc.rect(0,0,W,20,'F');
-  var logoX = M;
-  if(clubeLogo){
-    try{ doc.addImage(clubeLogo,'PNG',M,2,16,16); logoX=M+19; }catch(e){}
-  }
-  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255);
+  var logoX=M;
+  if(clubeLogo){ try{ doc.addImage(clubeLogo,'PNG',M,2,16,16); logoX=M+19; }catch(e){} }
+  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(255,255,255);
   doc.text(pdfStr(clubeNome), logoX, 10);
-  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
   doc.text('Plano de Treino', logoX, 16);
-  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
   doc.text('PLANO DE TREINO', W/2, 12, {align:'center'});
 
-  // Meta
-  var ty = 24;
-  var fields = [
-    ['Data', p.data||'—'], ['Hora', p.hora||'—'], ['Escalão', p.escalao||'—'],
-    ['Duração', p.duracao?p.duracao+'min':'—'], ['GR', p.gr||'—'], ['J.C.', p.jc||'—'],
-    ['Local', p.local||'—'], ['Período', p.periodo||'—'], ['Microciclo', p.microciclo||'—']
+  // Meta — 3 colunas
+  var ty=24;
+  var fields=[
+    ['Data',p.data||'—'],['Hora',p.hora||'—'],['Escalao',p.escalao||'—'],
+    ['Duracao',p.duracao?p.duracao+'min':'—'],['GR',p.gr||'—'],['J.C.',p.jc||'—'],
+    ['Local',p.local||'—'],['Periodo',p.periodo||'—'],['Microciclo',p.microciclo||'—']
   ];
   var cols=3, fw=(W-M*2)/cols;
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(30,30,30);
+  doc.setFontSize(7.5); doc.setTextColor(30,30,30);
   fields.forEach(function(f,i){
     var col=i%cols, row=Math.floor(i/cols);
     doc.setFont('helvetica','bold'); doc.text(pdfStr(f[0])+':', M+col*fw, ty+row*5);
-    doc.setFont('helvetica','normal'); doc.text(pdfStr(String(f[1])), M+col*fw+18, ty+row*5);
+    doc.setFont('helvetica','normal'); doc.text(pdfStr(String(f[1])), M+col*fw+16, ty+row*5);
   });
   ty += Math.ceil(fields.length/cols)*5+2;
   if(p.objetivos){
-    doc.setFont('helvetica','bold'); doc.text('Objetivos:', M, ty);
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    doc.text('Objetivos:', M, ty);
     doc.setFont('helvetica','normal');
     var ol=doc.splitTextToSize(pdfStr(p.objetivos), W-M*2-22);
-    doc.text(ol, M+22, ty); ty+=ol.length*4+2;
+    doc.text(ol, M+20, ty); ty+=ol.length*4+1;
   }
-  ty += 2;
-  // linha separadora
+  ty+=2;
   doc.setDrawColor(cor[0],cor[1],cor[2]); doc.setLineWidth(0.5);
-  doc.line(M, ty, W-M, ty); ty+=4;
+  doc.line(M,ty,W-M,ty); ty+=4;
 
-  // Exercícios — 2 por linha
-  var exs = p.exercicios||[];
-  var cellW=(W-M*2-6)/2, cellH=62;
-  var renderExRow = function(exList, startY){
-    exList.forEach(function(ex,i){
-      var col=i%2, row=Math.floor(i/2);
-      var ex_x=M+col*(cellW+6), ex_y=startY+row*(cellH+4);
-      // borda
-      doc.setDrawColor(200,200,200); doc.setLineWidth(0.4);
-      doc.rect(ex_x, ex_y, cellW, cellH);
-      // letra à esquerda
-      doc.setFillColor(cor[0],cor[1],cor[2]);
-      doc.rect(ex_x, ex_y, 10, cellH, 'F');
-      doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(11);
-      doc.text(ex.letra||'', ex_x+5, ex_y+cellH/2+4, {align:'center'});
-      // SVG do campo (se tiver)
-      var tx2 = ex_x+12;
-      if(ex.svg_data){
-        try{
-          var svgStr=ex.svg_data;
-          var blob=new Blob([svgStr],{type:'image/svg+xml'});
-          var url=URL.createObjectURL(blob);
-          // renderizar via canvas — assíncrono, por isso usamos uma imagem pré-gerada se disponível
-          // por agora colocamos um placeholder
-        }catch(e){}
-        // campo pequeno placeholder
-        doc.setFillColor(74,124,78);
-        doc.rect(tx2, ex_y+2, 55, 34, 'F');
-        doc.setTextColor(255,255,255); doc.setFontSize(7);
-        doc.text('Campo', tx2+27, ex_y+20, {align:'center'});
-        tx2 = tx2+58;
-      }
-      // texto
-      doc.setTextColor(30,30,30);
-      doc.setFont('helvetica','bold'); doc.setFontSize(9);
-      var titulo=doc.splitTextToSize(pdfStr(ex.titulo||'—'), cellW-tx2+ex_x-2);
-      doc.text(titulo, tx2, ex_y+6);
-      var ty2=ex_y+6+titulo.length*4+1;
-      if(ex.objetivo){ doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.text('Obj:', tx2, ty2); doc.setFont('helvetica','normal'); var ol2=doc.splitTextToSize(pdfStr(ex.objetivo),cellW-tx2+ex_x-8); doc.text(ol2,tx2+7,ty2); ty2+=ol2.length*3.5+1; }
-      if(ex.descricao){ doc.setFont('helvetica','normal'); doc.setFontSize(7); var dl=doc.splitTextToSize(pdfStr(ex.descricao),cellW-tx2+ex_x-2); doc.text(dl.slice(0,4),tx2,ty2); ty2+=Math.min(dl.length,4)*3.5+1; }
-      if(ex.tempo){ doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.text('Tempo: ',tx2,ex_y+cellH-4); doc.setFont('helvetica','normal'); doc.text(pdfStr(ex.tempo),tx2+14,ex_y+cellH-4); }
-    });
-  };
-  renderExRow(exs, ty);
+  // Exercícios — 1 por linha: campo à esq, texto à dir
+  var imgW=70, imgH=43, rowH=50, gap=4;
+  exs.forEach(function(ex){
+    if(ty+rowH > H-M){ doc.addPage(); ty=M; }
+
+    // borda da linha
+    doc.setDrawColor(220,220,220); doc.setLineWidth(0.3);
+    doc.rect(M, ty, W-M*2, rowH);
+
+    // letra (coluna esq colorida)
+    doc.setFillColor(cor[0],cor[1],cor[2]);
+    doc.rect(M, ty, 8, rowH, 'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(12);
+    doc.text(ex.letra||'', M+4, ty+rowH/2+4, {align:'center'});
+
+    // campo SVG
+    var cx = M+10;
+    if(svgImages[ex.letra]){
+      try{ doc.addImage(svgImages[ex.letra],'PNG', cx, ty+3, imgW, imgH); }catch(e){}
+    }
+
+    // texto à direita do campo
+    var tx2 = cx + imgW + 4;
+    var tw = W-M-tx2-2;
+    doc.setTextColor(30,30,30);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    var tit=doc.splitTextToSize(pdfStr(ex.titulo||'—'), tw);
+    doc.text(tit, tx2, ty+6);
+    var ly=ty+6+tit.length*4.5;
+
+    if(ex.objetivo){
+      doc.setFont('helvetica','bold'); doc.setFontSize(7);
+      doc.text('Objetivo:', tx2, ly);
+      doc.setFont('helvetica','normal');
+      var ols=doc.splitTextToSize(pdfStr(ex.objetivo), tw);
+      doc.text(ols, tx2, ly+4); ly+=4+ols.length*3.5;
+    }
+    if(ex.descricao){
+      doc.setFont('helvetica','normal'); doc.setFontSize(7);
+      var dls=doc.splitTextToSize(pdfStr(ex.descricao), tw);
+      doc.text(dls.slice(0,4), tx2, ly); ly+=Math.min(dls.length,4)*3.5;
+    }
+    if(ex.tempo){
+      doc.setFont('helvetica','bold'); doc.setFontSize(7);
+      doc.text('Tempo: ', tx2, ty+rowH-4);
+      doc.setFont('helvetica','normal');
+      doc.text(pdfStr(ex.tempo), tx2+13, ty+rowH-4);
+    }
+    ty += rowH + gap;
+  });
+
   doc.save('plano-'+(p.data||'treino')+'.pdf');
 }
-
 // ═══════════════════════════════════════════════════════
 
 // Carregar exercícios do Supabase
