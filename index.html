@@ -2088,7 +2088,10 @@ async function exportPlanoPDF(){
       doc.text(ols, tx2, ly+4); ly+=4+ols.length*3.5;
     }
     if(ex.descricao){
-      doc.setFont('helvetica','normal'); doc.setFontSize(7);
+      doc.setFont('helvetica','bold'); doc.setFontSize(7);
+      doc.text('Descricao:', tx2, ly);
+      ly+=4;
+      doc.setFont('helvetica','normal');
       var dls=doc.splitTextToSize(pdfStr(ex.descricao), tw);
       doc.text(dls.slice(0,4), tx2, ly); ly+=Math.min(dls.length,4)*3.5;
     }
