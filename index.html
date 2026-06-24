@@ -97,6 +97,10 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
 .modal-actions{display:flex;gap:8px;justify-content:flex-end}
 .modal input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:14px;padding:8px 11px;margin-bottom:14px}
 .modal input:focus{outline:none;border-color:var(--accent)}
+.btn-danger-soft{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
+.btn-danger-soft:hover{background:#fecaca}
+#pane-planos{display:none}
+#pane-planos.active{display:flex!important}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 </style>
@@ -125,6 +129,7 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
     <div class="editor-tabs">
       <div class="tab active" id="tab-btn-fields" onclick="switchTab('fields')">&#128203; Ficha</div>
       <div class="tab" id="tab-btn-field" onclick="switchTab('field')">&#127944; Campo</div>
+      <div class="tab" id="tab-btn-planos" onclick="switchTab('planos')" style="margin-left:auto;border-left:1px solid var(--border)">&#128197; Planos de Treino</div>
     </div>
     <div class="editor-body">
       <!-- FICHA -->
@@ -302,8 +307,64 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
           <svg id="field-svg" width="680" height="420" viewBox="0 0 680 420"></svg>
         </div>
       </div>
-    </div>
-    <div class="bottom-bar">
+      <!-- PLANOS DE TREINO -->
+      <div class="fields-panel" id="pane-planos" style="padding:0;display:flex;flex-direction:column;height:100%;overflow:hidden">
+        <div style="display:flex;gap:0;height:100%">
+          <!-- Lista de planos -->
+          <div style="width:220px;min-width:220px;border-right:1px solid var(--border);display:flex;flex-direction:column">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <span style="font-weight:700;font-size:13px">Planos</span>
+              <button class="btn btn-primary btn-sm" onclick="newPlano()">+ Novo</button>
+            </div>
+            <div id="planos-list" style="flex:1;overflow-y:auto;padding:6px">
+              <div class="empty-lib">Nenhum plano.<br>Clica em <b>+ Novo</b>.</div>
+            </div>
+          </div>
+          <!-- Editor de plano -->
+          <div style="flex:1;overflow-y:auto;padding:16px" id="plano-editor-wrap">
+            <div id="plano-empty-state" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text2);gap:8px">
+              <div style="font-size:40px">📅</div>
+              <div style="font-size:14px">Seleciona um plano ou cria um novo</div>
+            </div>
+            <div id="plano-form" style="display:none">
+              <!-- Cabeçalho do plano -->
+              <div class="form-card">
+                <div class="sec-title">Cabeçalho do Plano</div>
+                <div class="form-row">
+                  <div class="fgroup"><label>Data</label><input type="date" id="p-data"></div>
+                  <div class="fgroup"><label>Hora</label><input type="time" id="p-hora" value="18:00"></div>
+                  <div class="fgroup"><label>Escalão</label>
+                    <select id="p-escalao"><option value="">--</option><option>Bambis</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option><option>Senior</option></select>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="fgroup"><label>Duração (min)</label><input type="number" id="p-duracao" placeholder="90"></div>
+                  <div class="fgroup"><label>Local</label><input id="p-local" placeholder="Pavilhão..."></div>
+                  <div class="fgroup"><label>Treino nº</label><input id="p-num" placeholder="1"></div>
+                </div>
+                <div class="form-row">
+                  <div class="fgroup"><label>GR</label><input type="number" id="p-gr" placeholder="1" min="0"></div>
+                  <div class="fgroup"><label>J.C.</label><input type="number" id="p-jc" placeholder="8" min="0"></div>
+                  <div class="fgroup"><label>Período</label><input id="p-periodo" placeholder="Preparação..."></div>
+                  <div class="fgroup"><label>Microciclo nº</label><input id="p-microciclo" placeholder="1"></div>
+                </div>
+                <div class="form-row full"><div class="fgroup"><label>Objetivos da Sessão</label><textarea id="p-objetivos" placeholder="Transições, bloqueios..." style="min-height:50px"></textarea></div></div>
+              </div>
+              <!-- Exercícios A B C D -->
+              <div class="form-card">
+                <div class="sec-title">Exercícios</div>
+                <div id="plano-slots"></div>
+              </div>
+              <!-- Ações -->
+              <div style="display:flex;gap:8px;margin-top:8px;padding-bottom:20px">
+                <button class="btn btn-success" onclick="savePlano()" style="flex:1">💾 Guardar Plano</button>
+                <button class="btn btn-ghost btn-sm" id="btn-plano-pdf" onclick="exportPlanoPDF()">📄 PDF</button>
+                <button class="btn btn-ghost btn-sm btn-danger-soft" onclick="deletePlanoAtual()">🗑 Apagar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="bname" id="bname"><span>Exercicio: </span>Novo exercicio</div>
       <div style="flex:1"></div>
       <button class="btn btn-ghost btn-sm" onclick="showClubConfig()" title="Configurar cabeçalho do clube">&#9881; Clube</button>
@@ -357,6 +418,17 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('modal-del')">Cancelar</button>
       <button class="btn btn-danger" onclick="confirmDel()">Apagar</button>
+    </div>
+  </div>
+</div>
+<!-- MODAL APAGAR PLANO -->
+<div class="modal-overlay" id="modal-del-plano">
+  <div class="modal">
+    <h3>Apagar Plano</h3>
+    <p>Tens a certeza que queres apagar este plano?</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-del-plano')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmDelPlano()">Apagar</button>
     </div>
   </div>
 </div>
@@ -1116,10 +1188,14 @@ document.querySelectorAll('.cdot').forEach(function(d){
 function switchTab(tab){
   document.getElementById('tab-btn-fields').classList.toggle('active',tab==='fields');
   document.getElementById('tab-btn-field').classList.toggle('active',tab==='field');
+  document.getElementById('tab-btn-planos').classList.toggle('active',tab==='planos');
   var pf=document.getElementById('pane-fields');
   var pc=document.getElementById('pane-field');
-  if(tab==='fields'){pf.classList.add('active');pc.classList.remove('active');}
-  else{pc.classList.add('active');pf.classList.remove('active');}
+  var pp=document.getElementById('pane-planos');
+  pf.classList.remove('active'); pc.classList.remove('active'); pp.classList.remove('active');
+  if(tab==='fields') pf.classList.add('active');
+  else if(tab==='field') pc.classList.add('active');
+  else if(tab==='planos'){ pp.classList.add('active'); loadPlanos(); }
 }
 
 // --- CRUD ---
@@ -1640,6 +1716,321 @@ window.addEventListener('beforeinstallprompt', function(e){
 // --- INIT ---
 buildField();
 updUndo();
+
+// ═══════════════════════════════════════════════════════
+// PLANOS DE TREINO
+// ═══════════════════════════════════════════════════════
+var planos = [];
+var currentPlanoId = null;
+
+async function loadPlanos(){
+  try{
+    var res = await sb.from('planos_treino').select('*').order('data',{ascending:false});
+    if(res.error) throw res.error;
+    planos = res.data || [];
+    renderPlanosList();
+  } catch(err){
+    console.error('Erro ao carregar planos:', err);
+  }
+}
+
+function renderPlanosList(){
+  var list = document.getElementById('planos-list');
+  if(!list) return;
+  if(!planos.length){
+    list.innerHTML='<div class="empty-lib">Nenhum plano.<br>Clica em <b>+ Novo</b>.</div>';
+    return;
+  }
+  list.innerHTML = planos.map(function(p){
+    return '<div class="ex-item'+(p.id===currentPlanoId?' active':'')+'" onclick="loadPlano(\''+p.id+'\')">'+
+      '<div class="ex-item-title">'+(p.data||'Sem data')+' · '+(p.escalao||'—')+'</div>'+
+      '<div class="ex-item-meta">'+(p.objetivos||'').substring(0,40)+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function newPlano(){
+  currentPlanoId = null;
+  // reset form
+  ['p-data','p-hora','p-local','p-num','p-gr','p-jc','p-periodo','p-microciclo','p-objetivos','p-duracao'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.value = id==='p-hora'?'18:00':'';
+  });
+  document.getElementById('p-escalao').selectedIndex=0;
+  // set today's date
+  document.getElementById('p-data').value = new Date().toISOString().split('T')[0];
+  buildPlanoSlots();
+  document.getElementById('plano-empty-state').style.display='none';
+  document.getElementById('plano-form').style.display='block';
+  renderPlanosList();
+}
+
+function loadPlano(id){
+  var p = planos.find(function(x){return x.id===id;});
+  if(!p) return;
+  currentPlanoId = id;
+  var set = function(elId, val){ var el=document.getElementById(elId); if(el) el.value=val||''; };
+  set('p-data', p.data); set('p-hora', p.hora||'18:00');
+  set('p-local', p.local); set('p-num', p.treino_num);
+  set('p-gr', p.gr); set('p-jc', p.jc);
+  set('p-periodo', p.periodo); set('p-microciclo', p.microciclo);
+  set('p-objetivos', p.objetivos); set('p-duracao', p.duracao);
+  document.getElementById('p-escalao').value = p.escalao||'';
+  buildPlanoSlots(p.exercicios||[]);
+  document.getElementById('plano-empty-state').style.display='none';
+  document.getElementById('plano-form').style.display='block';
+  renderPlanosList();
+}
+
+function buildPlanoSlots(saved){
+  saved = saved || [];
+  var slots = document.getElementById('plano-slots');
+  if(!slots) return;
+  var letras = ['A','B','C','D'];
+  var exOptions = exercises.map(function(ex){
+    return '<option value="'+ex.id+'">'+ex.title+'</option>';
+  }).join('');
+  slots.innerHTML = letras.map(function(letra, i){
+    var s = saved.find(function(x){return x.letra===letra;})||{};
+    var isManual = s.exercicio_id===null && s.titulo;
+    return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+        '<span style="font-weight:700;color:var(--accent);font-size:15px;min-width:18px">'+letra+'</span>'+
+        '<select id="pslot-ex-'+letra+'" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit" onchange="onPlanoSlotChange(\''+letra+'\')">'+
+          '<option value="">— Selecionar da biblioteca —</option>'+
+          exOptions+
+          '<option value="__manual__">✏️ Inserir manualmente</option>'+
+        '</select>'+
+      '</div>'+
+      '<div id="pslot-manual-'+letra+'" style="display:none;margin-bottom:6px">'+
+        '<input id="pslot-titulo-'+letra+'" placeholder="Título do exercício" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:4px;box-sizing:border-box;font-family:inherit">'+
+        '<textarea id="pslot-obj-'+letra+'" placeholder="Objetivo" rows="1" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;resize:vertical;margin-bottom:4px;box-sizing:border-box;font-family:inherit"></textarea>'+
+        '<textarea id="pslot-desc-'+letra+'" placeholder="Descrição" rows="2" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>'+
+      '</div>'+
+      '<input id="pslot-tempo-'+letra+'" placeholder="Tempo (ex: 2 x 5 min)" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;box-sizing:border-box;font-family:inherit" value="'+(s.tempo||'')+'">'+
+    '</div>';
+  }).join('');
+  // restore saved values
+  saved.forEach(function(s){
+    if(!s.letra) return;
+    var sel = document.getElementById('pslot-ex-'+s.letra);
+    if(!sel) return;
+    if(s.exercicio_id){
+      sel.value = s.exercicio_id;
+    } else if(s.titulo){
+      sel.value = '__manual__';
+      document.getElementById('pslot-manual-'+s.letra).style.display='block';
+      var ti=document.getElementById('pslot-titulo-'+s.letra); if(ti) ti.value=s.titulo||'';
+      var oj=document.getElementById('pslot-obj-'+s.letra); if(oj) oj.value=s.objetivo||'';
+      var de=document.getElementById('pslot-desc-'+s.letra); if(de) de.value=s.descricao||'';
+    }
+  });
+}
+
+function onPlanoSlotChange(letra){
+  var sel = document.getElementById('pslot-ex-'+letra);
+  var manual = document.getElementById('pslot-manual-'+letra);
+  if(manual) manual.style.display = sel&&sel.value==='__manual__'?'block':'none';
+}
+
+function getPlanoExercicios(){
+  return ['A','B','C','D'].map(function(letra){
+    var sel = document.getElementById('pslot-ex-'+letra);
+    var tempo = document.getElementById('pslot-tempo-'+letra);
+    if(!sel||!sel.value) return null;
+    if(sel.value==='__manual__'){
+      var ti=document.getElementById('pslot-titulo-'+letra);
+      var oj=document.getElementById('pslot-obj-'+letra);
+      var de=document.getElementById('pslot-desc-'+letra);
+      return {letra:letra, exercicio_id:null,
+        titulo:ti?ti.value:'', objetivo:oj?oj.value:'',
+        descricao:de?de.value:'', tempo:tempo?tempo.value:'', svg_data:null};
+    }
+    var ex = exercises.find(function(e){return e.id===sel.value;});
+    if(!ex) return null;
+    return {letra:letra, exercicio_id:ex.id,
+      titulo:ex.title, objetivo:ex.objetivo||'',
+      descricao:ex.descricao||'', tempo:tempo?tempo.value:'',
+      svg_data:ex.svg_data||''};
+  }).filter(Boolean);
+}
+
+async function savePlano(){
+  var data = document.getElementById('p-data').value;
+  if(!data){ alert('Introduz uma data para o plano.'); return; }
+  var now = new Date().toISOString();
+  var plano = {
+    id: currentPlanoId || ('pl-'+Date.now()),
+    data: data,
+    hora: document.getElementById('p-hora').value||'',
+    escalao: document.getElementById('p-escalao').value||'',
+    duracao: parseInt(document.getElementById('p-duracao').value)||null,
+    local: document.getElementById('p-local').value||'',
+    treino_num: document.getElementById('p-num').value||'',
+    gr: parseInt(document.getElementById('p-gr').value)||null,
+    jc: parseInt(document.getElementById('p-jc').value)||null,
+    periodo: document.getElementById('p-periodo').value||'',
+    microciclo: document.getElementById('p-microciclo').value||'',
+    objetivos: document.getElementById('p-objetivos').value||'',
+    exercicios: getPlanoExercicios(),
+    criado_em: currentPlanoId ? (planos.find(function(p){return p.id===currentPlanoId;})||{}).criado_em||now : now,
+    atualizado_em: now
+  };
+  try{
+    var res = await sb.from('planos_treino').upsert(plano);
+    if(res.error) throw res.error;
+    currentPlanoId = plano.id;
+    var idx = planos.findIndex(function(p){return p.id===plano.id;});
+    if(idx>=0) planos[idx]=plano; else planos.unshift(plano);
+    renderPlanosList();
+    hint('✅ Plano guardado!');
+    setTimeout(function(){hint('');},3000);
+  } catch(err){
+    var msg = err.message||err.details||JSON.stringify(err);
+    hint('❌ Erro ao guardar plano: '+msg);
+  }
+}
+
+function deletePlanoAtual(){
+  if(!currentPlanoId){ alert('Seleciona um plano primeiro.'); return; }
+  openModal('modal-del-plano');
+}
+
+async function confirmDelPlano(){
+  if(!currentPlanoId) return;
+  try{
+    await sb.from('planos_treino').delete().eq('id', currentPlanoId);
+    planos = planos.filter(function(p){return p.id!==currentPlanoId;});
+    currentPlanoId = null;
+    document.getElementById('plano-empty-state').style.display='flex';
+    document.getElementById('plano-form').style.display='none';
+    renderPlanosList();
+    closeModal('modal-del-plano');
+    hint('✅ Plano apagado.');
+    setTimeout(function(){hint('');},3000);
+  } catch(err){
+    hint('❌ Erro ao apagar: '+(err.message||err));
+    closeModal('modal-del-plano');
+  }
+}
+
+// ── PDF do Plano ──
+async function exportPlanoPDF(){
+  if(!currentPlanoId){ alert('Seleciona um plano primeiro.'); return; }
+  var p = planos.find(function(x){return x.id===currentPlanoId;});
+  if(!p) return;
+  var jsPDF = window.jspdf?.jsPDF;
+  if(!jsPDF){ alert('jsPDF não disponível.'); return; }
+
+  // Ir buscar config do clube ao Supabase
+  var corHex = '#8B1A1A'; var clubeNome = 'Hóquei em Patins'; var clubeLogo = null;
+  try{
+    var cfg = await sb.from('config').select('key,value');
+    if(!cfg.error && cfg.data){
+      cfg.data.forEach(function(r){
+        if(r.key==='clube_nome') clubeNome=r.value||clubeNome;
+        if(r.key==='clube_cor') corHex=r.value||corHex;
+        if(r.key==='clube_logo') clubeLogo=r.value||null;
+      });
+    }
+  } catch(e){ console.warn('Config não carregada:', e); }
+
+  function hexToRgb(hex){
+    var r=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return r?[parseInt(r[1],16),parseInt(r[2],16),parseInt(r[3],16)]:[139,26,26];
+  }
+  var cor = hexToRgb(corHex);
+
+  var doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  var W=297,H=210,M=10;
+
+  // Header
+  doc.setFillColor(cor[0],cor[1],cor[2]);
+  doc.rect(0,0,W,20,'F');
+  var logoX = M;
+  if(clubeLogo){
+    try{ doc.addImage(clubeLogo,'PNG',M,2,16,16); logoX=M+19; }catch(e){}
+  }
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(255,255,255);
+  doc.text(pdfStr(clubeNome), logoX, 10);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('Plano de Treino', logoX, 16);
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('PLANO DE TREINO', W/2, 12, {align:'center'});
+
+  // Meta
+  var ty = 24;
+  var fields = [
+    ['Data', p.data||'—'], ['Hora', p.hora||'—'], ['Escalão', p.escalao||'—'],
+    ['Duração', p.duracao?p.duracao+'min':'—'], ['GR', p.gr||'—'], ['J.C.', p.jc||'—'],
+    ['Local', p.local||'—'], ['Período', p.periodo||'—'], ['Microciclo', p.microciclo||'—']
+  ];
+  var cols=3, fw=(W-M*2)/cols;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(30,30,30);
+  fields.forEach(function(f,i){
+    var col=i%cols, row=Math.floor(i/cols);
+    doc.setFont('helvetica','bold'); doc.text(pdfStr(f[0])+':', M+col*fw, ty+row*5);
+    doc.setFont('helvetica','normal'); doc.text(pdfStr(String(f[1])), M+col*fw+18, ty+row*5);
+  });
+  ty += Math.ceil(fields.length/cols)*5+2;
+  if(p.objetivos){
+    doc.setFont('helvetica','bold'); doc.text('Objetivos:', M, ty);
+    doc.setFont('helvetica','normal');
+    var ol=doc.splitTextToSize(pdfStr(p.objetivos), W-M*2-22);
+    doc.text(ol, M+22, ty); ty+=ol.length*4+2;
+  }
+  ty += 2;
+  // linha separadora
+  doc.setDrawColor(cor[0],cor[1],cor[2]); doc.setLineWidth(0.5);
+  doc.line(M, ty, W-M, ty); ty+=4;
+
+  // Exercícios — 2 por linha
+  var exs = p.exercicios||[];
+  var cellW=(W-M*2-6)/2, cellH=62;
+  var renderExRow = function(exList, startY){
+    exList.forEach(function(ex,i){
+      var col=i%2, row=Math.floor(i/2);
+      var ex_x=M+col*(cellW+6), ex_y=startY+row*(cellH+4);
+      // borda
+      doc.setDrawColor(200,200,200); doc.setLineWidth(0.4);
+      doc.rect(ex_x, ex_y, cellW, cellH);
+      // letra à esquerda
+      doc.setFillColor(cor[0],cor[1],cor[2]);
+      doc.rect(ex_x, ex_y, 10, cellH, 'F');
+      doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(11);
+      doc.text(ex.letra||'', ex_x+5, ex_y+cellH/2+4, {align:'center'});
+      // SVG do campo (se tiver)
+      var tx2 = ex_x+12;
+      if(ex.svg_data){
+        try{
+          var svgStr=ex.svg_data;
+          var blob=new Blob([svgStr],{type:'image/svg+xml'});
+          var url=URL.createObjectURL(blob);
+          // renderizar via canvas — assíncrono, por isso usamos uma imagem pré-gerada se disponível
+          // por agora colocamos um placeholder
+        }catch(e){}
+        // campo pequeno placeholder
+        doc.setFillColor(74,124,78);
+        doc.rect(tx2, ex_y+2, 55, 34, 'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(7);
+        doc.text('Campo', tx2+27, ex_y+20, {align:'center'});
+        tx2 = tx2+58;
+      }
+      // texto
+      doc.setTextColor(30,30,30);
+      doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      var titulo=doc.splitTextToSize(pdfStr(ex.titulo||'—'), cellW-tx2+ex_x-2);
+      doc.text(titulo, tx2, ex_y+6);
+      var ty2=ex_y+6+titulo.length*4+1;
+      if(ex.objetivo){ doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.text('Obj:', tx2, ty2); doc.setFont('helvetica','normal'); var ol2=doc.splitTextToSize(pdfStr(ex.objetivo),cellW-tx2+ex_x-8); doc.text(ol2,tx2+7,ty2); ty2+=ol2.length*3.5+1; }
+      if(ex.descricao){ doc.setFont('helvetica','normal'); doc.setFontSize(7); var dl=doc.splitTextToSize(pdfStr(ex.descricao),cellW-tx2+ex_x-2); doc.text(dl.slice(0,4),tx2,ty2); ty2+=Math.min(dl.length,4)*3.5+1; }
+      if(ex.tempo){ doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.text('Tempo: ',tx2,ex_y+cellH-4); doc.setFont('helvetica','normal'); doc.text(pdfStr(ex.tempo),tx2+14,ex_y+cellH-4); }
+    });
+  };
+  renderExRow(exs, ty);
+  doc.save('plano-'+(p.data||'treino')+'.pdf');
+}
+
+// ═══════════════════════════════════════════════════════
 
 // Carregar exercícios do Supabase
 async function loadFromSupabase(){
