@@ -372,15 +372,19 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
     <div class="bottom-bar">
       <div class="bname" id="bname"><span>Exercicio: </span>Novo exercicio</div>
       <div style="flex:1"></div>
-      <button class="btn btn-ghost btn-sm" onclick="showClubConfig()" title="Configurar cabeçalho do clube">&#9881; Clube</button>
-      <button class="btn btn-ghost btn-sm" onclick="exportJSON()" title="Exportar todos os exercícios para JSON">&#8595; JSON</button>
-      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-json').click()" title="Importar exercícios de JSON">&#8593; Importar</button>
+      <button class="btn btn-ghost btn-sm btn-ex-only" onclick="showClubConfig()" title="Configurar cabeçalho do clube">&#9881; Clube</button>
+      <button class="btn btn-ghost btn-sm btn-ex-only" onclick="exportJSON()" title="Exportar todos os exercícios para JSON">&#8595; JSON</button>
+      <button class="btn btn-ghost btn-sm btn-ex-only" onclick="document.getElementById('import-json').click()" title="Importar exercícios de JSON">&#8593; Importar</button>
       <input type="file" id="import-json" accept=".json" style="display:none" onchange="importJSON(this)">
-      <button class="btn btn-ghost btn-sm" id="btn-pdf" onclick="exportPDF()" title="Exportar exercício para PDF">&#8595; PDF</button>
-      <div class="tsep"></div>
-      <button class="btn btn-ghost" onclick="newExercise()">Novo</button>
-      <button class="btn btn-ghost btn-sm" onclick="delExercise()">Apagar</button>
-      <button class="btn btn-success" onclick="saveExercise()">Guardar</button>
+      <button class="btn btn-ghost btn-sm" id="btn-pdf" onclick="exportAtivo()" title="Exportar para PDF">&#8595; PDF</button>
+      <div class="tsep btn-ex-only"></div>
+      <button class="btn btn-ghost btn-ex-only" onclick="newExercise()">Novo</button>
+      <button class="btn btn-ghost btn-sm btn-ex-only" onclick="delExercise()">Apagar</button>
+      <button class="btn btn-success btn-ex-only" onclick="saveExercise()">Guardar</button>
+      <!-- Botões específicos dos planos -->
+      <button class="btn btn-ghost btn-plano-only" style="display:none" onclick="newPlano()">+ Novo Plano</button>
+      <button class="btn btn-ghost btn-sm btn-plano-only" style="display:none" onclick="deletePlanoAtual()">🗑 Apagar</button>
+      <button class="btn btn-success btn-plano-only" style="display:none" onclick="savePlano()">💾 Guardar Plano</button>
     </div>
   </div>
 </div>
@@ -1211,18 +1215,33 @@ document.querySelectorAll('.cdot').forEach(function(d){
 });
 
 // --- TABS ---
+var currentTab = 'fields';
+
 function switchTab(tab){
+  currentTab = tab;
   // tabs
   document.getElementById('tab-btn-fields').classList.toggle('active', tab==='fields');
   document.getElementById('tab-btn-field').classList.toggle('active', tab==='field');
   document.getElementById('tab-btn-planos').classList.toggle('active', tab==='planos');
-  // panels — remove active from all, then add to selected
+  // painéis
   ['pane-fields','pane-field','pane-planos'].forEach(function(id){
     document.getElementById(id).classList.remove('active');
   });
   if(tab==='fields') document.getElementById('pane-fields').classList.add('active');
   else if(tab==='field') document.getElementById('pane-field').classList.add('active');
   else if(tab==='planos'){ document.getElementById('pane-planos').classList.add('active'); loadPlanos(); }
+  // ajustar rodapé consoante aba
+  var isPlanos = tab==='planos';
+  document.getElementById('btn-pdf').title = isPlanos ? 'Exportar plano para PDF' : 'Exportar exercício para PDF';
+  document.getElementById('bname').style.display = isPlanos ? 'none' : '';
+  document.querySelector('.tsep').style.display = isPlanos ? 'none' : '';
+  document.querySelectorAll('.btn-ex-only').forEach(function(b){ b.style.display = isPlanos ? 'none' : ''; });
+  document.querySelectorAll('.btn-plano-only').forEach(function(b){ b.style.display = isPlanos ? '' : 'none'; });
+}
+
+function exportAtivo(){
+  if(currentTab==='planos') exportPlanoPDF();
+  else exportPDF();
 }
 
 // --- CRUD ---
@@ -1916,22 +1935,21 @@ async function confirmDelPlano(){
 async function exportPlanoPDF(){
   if(!currentPlanoId){ alert('Seleciona um plano primeiro.'); return; }
   var p = planos.find(function(x){return x.id===currentPlanoId;});
-  if(!p) return;
-  var jsPDF = window.jspdf?.jsPDF;
-  if(!jsPDF){ alert('jsPDF não disponível.'); return; }
+  if(!p){ alert('Plano não encontrado.'); return; }
+  var jsPDF = window.jspdf && window.jspdf.jsPDF;
+  if(!jsPDF){ alert('jsPDF nao disponivel. Verifica a ligacao a internet.'); return; }
 
   // Ir buscar config do clube ao Supabase
-  var corHex = '#8B1A1A'; var clubeNome = 'Hóquei em Patins'; var clubeLogo = null;
+  var corHex = '#8B1A1A'; var clubeNome = 'Hoquei em Patins'; var clubeLogo = null;
   try{
     var cfg = await sb.from('config').select('key,value');
-    if(!cfg.error && cfg.data){
-      cfg.data.forEach(function(r){
-        if(r.key==='clube_nome') clubeNome=r.value||clubeNome;
-        if(r.key==='clube_cor') corHex=r.value||corHex;
-        if(r.key==='clube_logo') clubeLogo=r.value||null;
-      });
-    }
-  } catch(e){ console.warn('Config não carregada:', e); }
+    var cfgData = Array.isArray(cfg.data) ? cfg.data : [];
+    cfgData.forEach(function(r){
+      if(r.key==='clube_nome') clubeNome=r.value||clubeNome;
+      if(r.key==='clube_cor') corHex=r.value||corHex;
+      if(r.key==='clube_logo') clubeLogo=r.value||null;
+    });
+  } catch(e){ console.warn('Config nao carregada:', e); }
 
   function hexToRgb(hex){
     var r=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
