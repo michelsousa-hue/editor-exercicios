@@ -1724,14 +1724,10 @@ var planos = [];
 var currentPlanoId = null;
 
 async function loadPlanos(){
-  try{
-    var res = await sb.from('planos_treino').select('*').order('data',{ascending:false});
-    if(res.error) throw res.error;
-    planos = res.data || [];
-    renderPlanosList();
-  } catch(err){
-    console.error('Erro ao carregar planos:', err);
-  }
+  var res = await sb.from('planos_treino').select('*').order('data',{ascending:false});
+  if(res.error){ console.error('Planos error:', res.error.message||res.error.code); return; }
+  planos = res.data || [];
+  renderPlanosList();
 }
 
 function renderPlanosList(){
@@ -2035,36 +2031,37 @@ async function exportPlanoPDF(){
 // Carregar exercícios do Supabase
 async function loadFromSupabase(){
   hint('A carregar biblioteca...');
-  try {
-    var res = await sb.from('exercicios').select('*').order('criado_em', {ascending:false});
-    if(res.error) throw res.error;
-    exercises = (res.data||[]).map(function(ex){
-      return {
-        id: ex.id,
-        title: ex.titulo||'Sem título',
-        escalao: ex.escalao||'',
-        categoria: ex.categoria||'',
-        duracao: ex.duracao||'',
-        objetivo: ex.objetivo||'',
-        descricao: ex.descricao||'',
-        pontos: ex.componentes||'',
-        variantes: ex.progressao||'',
-        material: ex.material||'',
-        svg_data: ex.svg_data||'',
-        fieldEl: '', fieldAr: '',
-        criado_em: ex.criado_em,
-        atualizado_em: ex.atualizado_em
-      };
-    });
+  var res = await sb.from('exercicios').select('*').order('criado_em', {ascending:false});
+  console.log('Supabase res:', JSON.stringify(res));
+  if(res.error){
+    var e = res.error;
+    console.error('Error keys:', Object.keys(e));
+    console.error('Error JSON:', JSON.stringify(e));
+    hint('⚠️ Erro: '+JSON.stringify(e));
     renderList();
-    hint(exercises.length ? '✅ '+exercises.length+' exercício(s) carregado(s)' : 'Biblioteca vazia — cria o primeiro exercício!');
-    setTimeout(function(){hint('');}, 3000);
-  } catch(err) {
-    var msg = err.message || err.details || err.hint || JSON.stringify(err);
-    hint('⚠️ Erro Supabase: '+msg);
-    console.error('Supabase error:', err);
-    renderList();
+    return;
   }
+  exercises = (res.data||[]).map(function(ex){
+    return {
+      id: ex.id,
+      title: ex.titulo||'Sem título',
+      escalao: ex.escalao||'',
+      categoria: ex.categoria||'',
+      duracao: ex.duracao||'',
+      objetivo: ex.objetivo||'',
+      descricao: ex.descricao||'',
+      pontos: ex.componentes||'',
+      variantes: ex.progressao||'',
+      material: ex.material||'',
+      svg_data: ex.svg_data||'',
+      fieldEl: '', fieldAr: '',
+      criado_em: ex.criado_em,
+      atualizado_em: ex.atualizado_em
+    };
+  });
+  renderList();
+  hint(exercises.length ? '✅ '+exercises.length+' exercício(s) carregado(s)' : 'Biblioteca vazia — cria o primeiro!');
+  setTimeout(function(){hint('');}, 3000);
 }
 
 loadFromSupabase();
