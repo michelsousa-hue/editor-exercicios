@@ -124,6 +124,36 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
       <h2>Biblioteca</h2>
       <button class="btn btn-primary btn-sm" onclick="newExercise()">+ Novo</button>
     </div>
+    <!-- Filtros -->
+    <div style="padding:6px 8px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:4px">
+      <input type="text" id="lib-search" placeholder="🔍 Pesquisar..." oninput="renderList()"
+        style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box">
+      <select id="lib-escalao" onchange="renderList()"
+        style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">
+        <option value="">Todos os escalões</option>
+        <option>Bambis</option><option>Sub-9</option><option>Sub-11</option>
+        <option>Sub-13</option><option>Sub-15</option><option>Sub-17</option>
+        <option>Sub-20</option><option>Senior</option>
+      </select>
+      <select id="lib-categoria" onchange="onLibCatChange()"
+        style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">
+        <option value="">Todas as categorias</option>
+        <option>Técnica Individual</option>
+        <option>Táctica Individual</option>
+        <option>Táctica Colectiva</option>
+        <option>Guarda-Redes</option>
+        <option>Condição Física</option>
+        <option>Lúdico</option>
+      </select>
+      <select id="lib-subcategoria" onchange="renderList()" style="display:none;width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">
+        <option value="">Todas as subcategorias</option>
+        <option>Processo Ofensivo</option>
+        <option>Processo Defensivo</option>
+        <option>Transição Defesa→Ataque</option>
+        <option>Transição Ataque→Defesa</option>
+        <option>Bolas Paradas</option>
+      </select>
+    </div>
     <div class="ex-list" id="ex-list">
       <div class="empty-lib">Nenhum exercicio guardado.<br>Clica em <b>+ Novo</b> para comecar.</div>
     </div>
@@ -147,9 +177,27 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
           </div>
           <div class="form-row three">
             <div class="fgroup"><label>Categoria</label>
-              <select id="f-categoria"><option value="">-- Selecionar --</option><option>Tactica Individual</option><option>Tactica Grupal</option><option>Tactica Colectiva</option><option>Tecnica Individual</option><option>Condicao Fisica</option><option>Guarda-Redes</option><option>Ludico</option></select>
+              <select id="f-categoria" onchange="onCategoriaChange()">
+                <option value="">-- Selecionar --</option>
+                <option>Técnica Individual</option>
+                <option>Táctica Individual</option>
+                <option>Táctica Colectiva</option>
+                <option>Guarda-Redes</option>
+                <option>Condição Física</option>
+                <option>Lúdico</option>
+              </select>
             </div>
-            <div class="fgroup"><label>Duracao (min)</label><input type="number" id="f-duracao" placeholder="10" min="1"></div>
+            <div class="fgroup" id="fgroup-subcategoria" style="display:none"><label>Subcategoria</label>
+              <select id="f-subcategoria">
+                <option value="">-- Selecionar --</option>
+                <option>Processo Ofensivo</option>
+                <option>Processo Defensivo</option>
+                <option>Transição Defesa→Ataque</option>
+                <option>Transição Ataque→Defesa</option>
+                <option>Bolas Paradas</option>
+              </select>
+            </div>
+            <div class="fgroup"><label>Duração (min)</label><input type="number" id="f-duracao" placeholder="10" min="1"></div>
             <div class="fgroup"><label>Series / Rep.</label><input id="f-series" placeholder="Ex: 3x2min"></div>
           </div>
         </div>
@@ -1250,6 +1298,7 @@ function getFD(){
     title:document.getElementById('f-title').value||'Sem titulo',
     escalao:document.getElementById('f-escalao').value,
     categoria:document.getElementById('f-categoria').value,
+    subcategoria:document.getElementById('f-subcategoria')?.value||'',
     duracao:document.getElementById('f-duracao').value,
     series:document.getElementById('f-series').value,
     objetivo:document.getElementById('f-objetivo').value,
@@ -1268,6 +1317,10 @@ function setFD(ex){
   ['title','escalao','categoria','duracao','series','objetivo','elementos','pontos','descricao','jogadores','material','variantes','notas'].forEach(function(k){
     var el=document.getElementById('f-'+k); if(el){if(el.tagName==='SELECT')el.value=ex[k]||''; else el.value=ex[k]||'';}
   });
+  // subcategoria — restaurar e mostrar/esconder
+  var subEl=document.getElementById('f-subcategoria');
+  if(subEl) subEl.value=ex.subcategoria||'';
+  onCategoriaChange();
   buildField();
   setTimeout(function(){
     // restaurar SVG — primeiro tenta fieldEl/fieldAr (formato antigo), depois svg_data (Supabase)
@@ -1297,6 +1350,14 @@ function clearFD(){
   buildField();
   document.getElementById('bname').innerHTML='<span>Exercicio: </span>Novo exercicio';
 }
+function onCategoriaChange(){
+  var cat = document.getElementById('f-categoria').value;
+  var show = cat === 'Táctica Colectiva';
+  var fg = document.getElementById('fgroup-subcategoria');
+  if(fg) fg.style.display = show ? '' : 'none';
+  if(!show){ var s=document.getElementById('f-subcategoria'); if(s) s.value=''; }
+}
+
 function newExercise(){ currentId=null; clearFD(); document.querySelectorAll('.ex-item').forEach(function(i){i.classList.remove('active');}); switchTab('fields'); }
 function saveExercise(){
   var t=document.getElementById('f-title').value;
@@ -1372,6 +1433,7 @@ async function doSave(title,isNew){
     titulo: title,
     escalao: fd.escalao||'',
     categoria: fd.categoria||'',
+    subcategoria: fd.subcategoria||'',
     duracao: parseInt(fd.duracao)||null,
     objetivo: fd.objetivo||'',
     descricao: fd.descricao||'',
@@ -1424,13 +1486,39 @@ async function confirmDel(){
     closeModal('modal-del');
   }
 }
+function onLibCatChange(){
+  var cat=document.getElementById('lib-categoria').value;
+  var sub=document.getElementById('lib-subcategoria');
+  if(sub){sub.style.display=cat==='Táctica Colectiva'?'':'none';sub.value='';}
+  renderList();
+}
+
 function renderList(){
   var list=document.getElementById('ex-list');
-  if(!exercises.length){list.innerHTML='<div class="empty-lib">Nenhum exercicio guardado.<br>Clica em <b>+ Novo</b> para comecar.</div>';return;}
-  list.innerHTML=exercises.map(function(ex){
+  var q=(document.getElementById('lib-search')?.value||'').toLowerCase();
+  var esc=document.getElementById('lib-escalao')?.value||'';
+  var cat=document.getElementById('lib-categoria')?.value||'';
+  var sub=document.getElementById('lib-subcategoria')?.value||'';
+
+  var filtered=exercises.filter(function(ex){
+    if(esc && ex.escalao!==esc) return false;
+    if(cat && ex.categoria!==cat) return false;
+    if(sub && ex.subcategoria!==sub) return false;
+    if(q && !(ex.title||'').toLowerCase().includes(q) &&
+            !(ex.objetivo||'').toLowerCase().includes(q) &&
+            !(ex.descricao||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  if(!filtered.length){
+    list.innerHTML='<div class="empty-lib">'+(exercises.length?'Nenhum exercício encontrado.<br>Ajusta os filtros.':'Nenhum exercicio guardado.<br>Clica em <b>+ Novo</b> para comecar.')+'</div>';
+    return;
+  }
+  list.innerHTML=filtered.map(function(ex){
+    var meta=[ex.escalao,ex.categoria,ex.subcategoria,ex.duracao?ex.duracao+'min':''].filter(Boolean).join(' · ');
     return '<div class="ex-item'+(ex.id===currentId?' active':'')+'" onclick="loadEx(\''+ex.id+'\')">'+
       '<div class="ex-item-title">'+ex.title+'</div>'+
-      '<div class="ex-item-meta">'+(([ex.escalao,ex.categoria,ex.duracao?ex.duracao+'min':''].filter(Boolean).join(' · '))||'—')+'</div></div>';
+      '<div class="ex-item-meta">'+(meta||'—')+'</div></div>';
   }).join('');
 }
 function loadEx(id){
@@ -2201,6 +2289,7 @@ async function loadFromSupabase(){
       title: ex.titulo||'Sem título',
       escalao: ex.escalao||'',
       categoria: ex.categoria||'',
+      subcategoria: ex.subcategoria||'',
       duracao: ex.duracao||'',
       objetivo: ex.objetivo||'',
       descricao: ex.descricao||'',
