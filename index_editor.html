@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor de Exercicios - Hoquei em Patins</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a56db">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Hockey Editor">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --accent:#1a56db;--accent-l:#e8f0fe;
+  --border:#d0d5e8;--text:#1a1a2e;--text2:#5a6a8a;
+  --bg:#f5f6fa;--bg2:#fff;--bg3:#f0f2f8;
+  --green:#16a34a;--red:#dc2626;--r:8px;
+}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+/* HEADER */
+header{background:#fff;border-bottom:2px solid var(--accent);padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:800;letter-spacing:1px;color:var(--accent);text-transform:uppercase}
+/* BUTTONS */
+.btn{padding:6px 14px;border-radius:var(--r);border:none;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#1241b0}
+.btn-danger{background:var(--red);color:#fff}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-l)}
+.btn-success{background:var(--green);color:#fff}.btn-success:hover{background:#15803d}
+.btn-sm{padding:4px 10px;font-size:12px}
+/* LAYOUT */
+.app{display:flex;flex:1;overflow:hidden;height:calc(100vh - 52px)}
+/* SIDEBAR */
+.sidebar{width:230px;min-width:230px;background:#fff;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-header{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg3)}
+.sidebar-header h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);flex:1}
+.ex-list{flex:1;overflow-y:auto;padding:6px}
+.ex-item{padding:9px 11px;border-radius:var(--r);cursor:pointer;border:1px solid transparent;margin-bottom:3px;transition:all .15s}
+.ex-item:hover{background:var(--bg3);border-color:var(--border)}
+.ex-item.active{background:var(--accent-l);border-color:var(--accent)}
+.ex-item-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ex-item-meta{font-size:11px;color:var(--text2)}
+.empty-lib{text-align:center;padding:30px 16px;color:var(--text2);font-size:13px;line-height:1.6}
+/* EDITOR */
+.editor{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.editor-tabs{display:flex;background:#fff;border-bottom:1px solid var(--border);padding:0 16px}
+.tab{padding:9px 16px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;user-select:none}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.editor-body{flex:1;overflow:hidden;display:flex;min-height:0}
+/* FICHA */
+.fields-panel{flex:1;overflow-y:auto;padding:20px;background:var(--bg);width:100%;display:none}
+.fields-panel.active{display:block}
+.form-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:14px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-row.full{grid-template-columns:1fr}
+.form-row.three{grid-template-columns:1fr 1fr 1fr}
+.fgroup{display:flex;flex-direction:column;gap:5px}
+.fgroup label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text2)}
+.fgroup input,.fgroup textarea,.fgroup select{background:#f8f9fc;border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;padding:8px 11px;transition:border-color .15s;resize:vertical}
+.fgroup input:focus,.fgroup textarea:focus,.fgroup select:focus{outline:none;border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(26,86,219,.1)}
+.fgroup textarea{min-height:75px}
+.sec-title{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+/* CAMPO */
+.field-panel{flex:1;overflow:hidden;display:none;flex-direction:row;width:100%;min-height:0}
+.field-panel.active{display:flex}
+.gallery{width:126px;min-width:126px;background:#fff;border-right:1px solid var(--border);overflow-y:auto;padding:6px}
+.glabel{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);padding:7px 4px 3px}
+.ggrid{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:4px}
+.gitem{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 3px;cursor:pointer;text-align:center;transition:all .15s;user-select:none}
+.gitem:hover,.gitem.active{border-color:var(--accent);background:var(--accent-l)}
+.gitem:active{transform:scale(.95)}
+.gitem svg{display:block;margin:0 auto 2px}
+.gitem span{font-size:9px;color:var(--text2);display:block;line-height:1.2}
+.color-row{display:flex;gap:4px;padding:3px 0;flex-wrap:wrap}
+.cdot{width:17px;height:17px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .1s}
+.cdot:hover,.cdot.sel{border-color:#333;transform:scale(1.15)}
+.canvas-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;background:#e8ecf4}
+.ftoolbar{display:flex;gap:5px;margin-bottom:8px;align-items:center;flex-wrap:wrap;width:100%;max-width:700px}
+.tbtn{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--text2);font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;transition:all .15s}
+.tbtn:hover,.tbtn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-l)}
+.tbtn.danger{color:var(--red);border-color:#fca5a5}.tbtn.danger:hover{background:#fee2e2}
+.tsep{width:1px;height:18px;background:var(--border);margin:0 3px}
+#field-svg{border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15);cursor:default}
+#field-svg.draw{cursor:crosshair}
+/* BOTTOM */
+.bottom-bar{background:#fff;border-top:1px solid var(--border);padding:9px 18px;display:flex;align-items:center;gap:10px}
+.bname{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;color:var(--text)}
+.bname span{color:var(--text2);font-weight:400;font-size:12px}
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:100}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border:1px solid var(--border);border-radius:12px;padding:26px;width:400px;box-shadow:0 12px 40px rgba(0,0,0,.15)}
+.modal h3{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+.modal p{color:var(--text2);font-size:14px;margin-bottom:18px;line-height:1.5}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+.modal input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:14px;padding:8px 11px;margin-bottom:14px}
+.modal input:focus{outline:none;border-color:var(--accent)}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+<header>
+  <h1>&#9651; Editor de Exercicios &mdash; Hoquei em Patins</h1>
+  <span style="font-size:11px;color:var(--text2);margin-left:auto" id="undo-info"></span>
+</header>
+<div id="install-banner" style="display:none;background:#1a56db;color:white;padding:8px 20px;align-items:center;gap:12px;font-size:13px;font-family:'Barlow',sans-serif;">
+  <span>&#128241; Instala esta app para usar offline!</span>
+  <button onclick="installPWA()" style="background:white;color:#1a56db;border:none;padding:4px 12px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px">Instalar</button>
+  <button onclick="document.getElementById('install-banner').style.display='none'" style="background:transparent;color:white;border:1px solid rgba(255,255,255,0.5);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">Agora não</button>
+</div>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>Biblioteca</h2>
+      <button class="btn btn-primary btn-sm" onclick="newExercise()">+ Novo</button>
+    </div>
+    <div class="ex-list" id="ex-list">
+      <div class="empty-lib">Nenhum exercicio guardado.<br>Clica em <b>+ Novo</b> para comecar.</div>
+    </div>
+  </div>
+  <div class="editor">
+    <div class="editor-tabs">
+      <div class="tab active" id="tab-btn-fields" onclick="switchTab('fields')">&#128203; Ficha</div>
+      <div class="tab" id="tab-btn-field" onclick="switchTab('field')">&#127944; Campo</div>
+    </div>
+    <div class="editor-body">
+      <!-- FICHA -->
+      <div class="fields-panel active" id="pane-fields">
+        <div class="form-card">
+          <div class="sec-title">Identificacao</div>
+          <div class="form-row">
+            <div class="fgroup"><label>Titulo *</label><input id="f-title" placeholder="Ex: 3x2 Finalizacao Central"></div>
+            <div class="fgroup"><label>Escalao</label>
+              <select id="f-escalao"><option value="">-- Selecionar --</option><option>Bambis</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option><option>Senior</option></select>
+            </div>
+          </div>
+          <div class="form-row three">
+            <div class="fgroup"><label>Categoria</label>
+              <select id="f-categoria"><option value="">-- Selecionar --</option><option>Tactica Individual</option><option>Tactica Grupal</option><option>Tactica Colectiva</option><option>Tecnica Individual</option><option>Condicao Fisica</option><option>Guarda-Redes</option><option>Ludico</option></select>
+            </div>
+            <div class="fgroup"><label>Duracao (min)</label><input type="number" id="f-duracao" placeholder="10" min="1"></div>
+            <div class="fgroup"><label>Series / Rep.</label><input id="f-series" placeholder="Ex: 3x2min"></div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="sec-title">Conteudo</div>
+          <div class="form-row full"><div class="fgroup"><label>Objetivo</label><input id="f-objetivo" placeholder="Ex: Trabalhar as transicoes"></div></div>
+          <div class="form-row full"><div class="fgroup"><label>Elementos do Conteudo</label><input id="f-elementos" placeholder="Ex: Habilidades Basicas Fundamentais"></div></div>
+          <div class="form-row full"><div class="fgroup"><label>Pontos Chave</label><input id="f-pontos" placeholder="Ex: Patinagem, Passe, Remate"></div></div>
+          <div class="form-row full"><div class="fgroup"><label>Descricao</label><textarea id="f-descricao" placeholder="Descreve o exercicio..."></textarea></div></div>
+        </div>
+        <div class="form-card">
+          <div class="sec-title">Organizacao</div>
+          <div class="form-row">
+            <div class="fgroup"><label>Nr Jogadores</label><input id="f-jogadores" placeholder="Ex: 8+2GR"></div>
+            <div class="fgroup"><label>Material</label><input id="f-material" placeholder="Ex: Bolas, cones"></div>
+          </div>
+          <div class="form-row full"><div class="fgroup"><label>Variantes</label><textarea id="f-variantes" style="min-height:55px" placeholder="Como evoluir..."></textarea></div></div>
+          <div class="form-row full"><div class="fgroup"><label>Notas do Treinador</label><textarea id="f-notas" style="min-height:55px" placeholder="Notas internas..."></textarea></div></div>
+        </div>
+      </div>
+      <!-- CAMPO -->
+      <div class="field-panel" id="pane-field">
+        <div class="gallery">
+          <!-- COR DO JOGADOR -->
+          <div class="glabel">Cor equipa</div>
+          <div class="color-row" id="color-row">
+            <div class="cdot sel" style="background:#111" data-c="#111" data-s="#111" title="Neutro"></div>
+            <div class="cdot" style="background:#dc2626" data-c="#dc2626" data-s="#dc2626" title="Equipa A"></div>
+            <div class="cdot" style="background:#1a56db" data-c="#1a56db" data-s="#1a56db" title="Equipa B"></div>
+            <div class="cdot" style="background:#16a34a" data-c="#16a34a" data-s="#16a34a" title="Equipa C"></div>
+            <div class="cdot" style="background:#d97706" data-c="#d97706" data-s="#d97706" title="Equipa D"></div>
+          </div>
+          <!-- JOGADORES FPP -->
+          <div class="glabel">Jogadores</div>
+          <div class="ggrid">
+            <!-- Atacante (circulo vazio) -->
+            <div class="gitem" onclick="addEl('attacker')">
+              <svg width="28" height="28" viewBox="-14 -14 28 28"><circle cx="0" cy="0" r="10" fill="white" stroke="#111" stroke-width="2"/></svg>
+              <span>Ataque</span>
+            </div>
+            <!-- Defesa (triangulo vazio) -->
+            <div class="gitem" onclick="addEl('defender')">
+              <svg width="28" height="28" viewBox="-14 -14 28 28"><polygon points="0,-11 -10,9 10,9" fill="white" stroke="#111" stroke-width="2"/></svg>
+              <span>Defesa</span>
+            </div>
+            <!-- GR = apenas letras GR -->
+            <div class="gitem" onclick="addEl('gr')">
+              <svg width="32" height="22" viewBox="-16 -11 32 22">
+                <text x="0" y="5" text-anchor="middle" font-size="13" fill="#111" font-weight="bold" font-family="sans-serif">GR</text>
+              </svg>
+              <span>GR</span>
+            </div>
+          </div>
+          <!-- BALIZAS -->
+          <div class="glabel">Balizas</div>
+          <div class="ggrid">
+            <!-- Baliza grande = antiga mini (escala certa para o campo) -->
+            <div class="gitem" onclick="addEl('goal')"><svg width="30" height="26" viewBox="-15 -13 30 26"><path d="M -10,9 L -10,-5 Q -10,-11 0,-11 Q 10,-11 10,-5 L 10,9 Z" fill="none" stroke="#333" stroke-width="2" stroke-linejoin="round"/><line x1="-3" y1="-10.5" x2="-3" y2="9" stroke="#333" stroke-width="1"/><line x1="3" y1="-10.5" x2="3" y2="9" stroke="#333" stroke-width="1"/><line x1="-10" y1="1" x2="10" y2="1" stroke="#333" stroke-width="1"/><line x1="-10" y1="9" x2="10" y2="9" stroke="#333" stroke-width="2"/></svg><span>Baliza</span></div>
+            <!-- Mini baliza = 25% menor -->
+            <div class="gitem" onclick="addEl('mini')"><svg width="24" height="22" viewBox="-12 -11 24 22"><path d="M -7.5,7 L -7.5,-4 Q -7.5,-8 0,-8 Q 7.5,-8 7.5,-4 L 7.5,7 Z" fill="none" stroke="#333" stroke-width="1.8" stroke-linejoin="round"/><line x1="-2.5" y1="-7.8" x2="-2.5" y2="7" stroke="#333" stroke-width="0.9"/><line x1="2.5" y1="-7.8" x2="2.5" y2="7" stroke="#333" stroke-width="0.9"/><line x1="-7.5" y1="0.5" x2="7.5" y2="0.5" stroke="#333" stroke-width="0.9"/><line x1="-7.5" y1="7" x2="7.5" y2="7" stroke="#333" stroke-width="1.8"/></svg><span>Mini</span></div>
+          </div>
+          <!-- EQUIPAMENTO -->
+          <div class="glabel">Equipamento</div>
+          <div class="ggrid">
+            <!-- Cone FPP = triangulo solido preto -->
+            <div class="gitem" onclick="addEl('cone')">
+              <svg width="24" height="26" viewBox="-12 -18 24 26"><polygon points="0,-16 -9,6 9,6" fill="#111" stroke="#111" stroke-width="1"/></svg>
+              <span>Cone</span>
+            </div>
+            <!-- Bola = circulo pequeno preto cheio -->
+            <div class="gitem" onclick="addEl('ball')">
+              <svg width="22" height="22" viewBox="-11 -11 22 22"><circle cx="0" cy="0" r="7" fill="#111"/></svg>
+              <span>Bola</span>
+            </div>
+            <div class="gitem" onclick="addEl('disc')"><svg width="28" height="18" viewBox="-14 -9 28 18"><ellipse cx="0" cy="2" rx="13" ry="5" fill="#dc2626" stroke="#991b1b" stroke-width="1.5"/><ellipse cx="0" cy="0" rx="13" ry="5" fill="#dc2626" stroke="#991b1b" stroke-width="1.5"/></svg><span>Disco</span></div>
+            <!-- Caixa de texto -->
+            <div class="gitem" onclick="addEl('textbox')">
+              <svg width="32" height="22" viewBox="-16 -11 32 22"><rect x="-13" y="-9" width="26" height="18" fill="none" stroke="#111" stroke-width="1.5" rx="2"/><text x="0" y="5" text-anchor="middle" font-size="10" fill="#111" font-weight="bold" font-family="sans-serif">A1</text></svg>
+              <span>Texto</span>
+            </div>
+          </div>
+          <!-- LINHAS FPP -->
+          <div class="glabel">Movimentos</div>
+          <div class="ggrid">
+            <!-- Deslocamento sem bola: linha contínua + seta -->
+            <div class="gitem" id="lt-move" onclick="setLT('move')">
+              <svg width="36" height="20" viewBox="0 0 36 20"><defs><marker id="m0" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/></marker></defs><line x1="2" y1="10" x2="32" y2="10" stroke="#111" stroke-width="2" marker-end="url(#m0)"/></svg>
+              <span>Desloc.</span>
+            </div>
+            <!-- Deslocamento posterior sem bola: tracejado + seta -->
+            <div class="gitem" id="lt-move-back" onclick="setLT('move-back')">
+              <svg width="36" height="20" viewBox="0 0 36 20"><defs><marker id="m0b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/></marker></defs><line x1="2" y1="10" x2="32" y2="10" stroke="#111" stroke-width="2" stroke-dasharray="6 3" marker-end="url(#m0b)"/></svg>
+              <span>Desloc.Post.</span>
+            </div>
+            <!-- Condução com bola: ondulado + seta -->
+            <div class="gitem" id="lt-dribble" onclick="setLT('dribble')">
+              <svg width="36" height="20" viewBox="0 0 36 20"><defs><marker id="m_dr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/></marker></defs><path d="M2,10 Q7,4 12,10 Q17,16 22,10 Q27,4 32,10" fill="none" stroke="#111" stroke-width="2" marker-end="url(#m_dr)"/></svg>
+              <span>Condução</span>
+            </div>
+            <!-- Passe / trajetória bola: tracejado fino -->
+            <div class="gitem" id="lt-pass" onclick="setLT('pass')">
+              <svg width="36" height="20" viewBox="0 0 36 20"><defs><marker id="m1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/></marker></defs><line x1="2" y1="10" x2="32" y2="10" stroke="#111" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#m1)"/></svg>
+              <span>Passe</span>
+            </div>
+            <!-- Remate: linha grossa seta sólida -->
+            <div class="gitem" id="lt-shot" onclick="setLT('shot')">
+              <svg width="36" height="20" viewBox="0 0 36 20"><defs><marker id="m2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="#111" stroke="#111"/></marker></defs><line x1="2" y1="10" x2="30" y2="10" stroke="#111" stroke-width="3.5" marker-end="url(#m2)"/></svg>
+              <span>Remate</span>
+            </div>
+            <!-- Finta simples: linha com pico -->
+            <div class="gitem" id="lt-feint" onclick="setLT('feint')">
+              <svg width="36" height="20" viewBox="0 0 36 20"><defs><marker id="m_ft" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/></marker></defs><polyline points="2,14 14,14 20,5 26,14 34,14" fill="none" stroke="#111" stroke-width="2" marker-end="url(#m_ft)"/></svg>
+              <span>Finta</span>
+            </div>
+            <!-- Finta dupla: dois picos -->
+            <div class="gitem" id="lt-feint2" onclick="setLT('feint2')">
+              <svg width="36" height="20" viewBox="0 0 36 20"><defs><marker id="m_ft2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/></marker></defs><polyline points="2,14 9,14 14,5 19,14 24,5 29,14 34,14" fill="none" stroke="#111" stroke-width="2" marker-end="url(#m_ft2)"/></svg>
+              <span>Finta dupla</span>
+            </div>
+            <!-- Bloqueio: linha com barra perpendicular -->
+            <div class="gitem" id="lt-block" onclick="setLT('block')">
+              <svg width="36" height="20" viewBox="0 0 36 20"><line x1="2" y1="10" x2="30" y2="10" stroke="#111" stroke-width="2"/><line x1="30" y1="4" x2="30" y2="16" stroke="#111" stroke-width="3"/></svg>
+              <span>Bloqueio</span>
+            </div>
+            <!-- Passe c/ devolução: tracejado com seta dupla -->
+            <div class="gitem" id="lt-pass-return" onclick="setLT('pass-return')">
+              <svg width="36" height="20" viewBox="0 0 36 20"><defs><marker id="m_pr1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/></marker><marker id="m_pr2" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M8 1L2 5L8 9" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/></marker></defs><line x1="4" y1="10" x2="32" y2="10" stroke="#111" stroke-width="1.5" stroke-dasharray="4 3" marker-start="url(#m_pr2)" marker-end="url(#m_pr1)"/></svg>
+              <span>P.Devolução</span>
+            </div>
+            <!-- Linha livre curva (slalom, trajetórias livres) -->
+            <div class="gitem" id="lt-curve" onclick="setLT('curve')">
+              <svg width="36" height="20" viewBox="0 0 36 20"><defs><marker id="m_cv" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/></marker></defs><path d="M2,14 C8,14 10,4 18,10 C26,16 28,4 34,6" fill="none" stroke="#111" stroke-width="2" marker-end="url(#m_cv)"/></svg>
+              <span>Curva livre</span>
+            </div>
+            <!-- Cortina = gesto técnico (arco em C) -->
+            <div class="gitem" onclick="addEl('curtain')">
+              <svg width="24" height="26" viewBox="-12 -13 24 26"><path d="M 8,-10 Q -14,0 8,10" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round"/></svg>
+              <span>Cortina</span>
+            </div>
+          </div>
+          <div style="padding:6px 4px;display:flex;flex-direction:column;gap:3px">
+            <button class="tbtn danger" style="width:100%" onclick="delSel()">Apagar sel.</button>
+            <button class="tbtn" style="width:100%" onclick="clearAll()">Limpar campo</button>
+          </div>
+        </div>
+        <div class="canvas-area">
+          <div class="ftoolbar">
+            <button class="tbtn active" id="btn-sel" onclick="setTool('sel')">Selecionar</button>
+            <button class="tbtn" id="btn-draw" onclick="setTool('draw')">Desenhar</button>
+            <div class="tsep"></div>
+            <button class="tbtn" onclick="copySel()" title="Ctrl+C">Copiar</button>
+            <button class="tbtn" onclick="pasteEl()" title="Ctrl+V">Colar</button>
+            <button class="tbtn" id="btn-undo" onclick="undo()" title="Ctrl+Z">Desfazer</button>
+            <button class="tbtn" onclick="flipSel()" title="Espelhar">&#8596; Espelhar</button>
+            <button class="tbtn danger" onclick="delSel()" title="Del">Apagar</button>
+            <span style="margin-left:auto;font-size:11px;color:var(--text2);font-family:'Barlow Condensed',sans-serif" id="hint">Clica na galeria para adicionar elementos</span>
+          </div>
+          <svg id="field-svg" width="680" height="420" viewBox="0 0 680 420"></svg>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <div class="bname" id="bname"><span>Exercicio: </span>Novo exercicio</div>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost btn-sm" onclick="showClubConfig()" title="Configurar cabeçalho do clube">&#9881; Clube</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportJSON()" title="Exportar todos os exercícios para JSON">&#8595; JSON</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-json').click()" title="Importar exercícios de JSON">&#8593; Importar</button>
+      <input type="file" id="import-json" accept=".json" style="display:none" onchange="importJSON(this)">
+      <button class="btn btn-ghost btn-sm" id="btn-pdf" onclick="exportPDF()" title="Exportar exercício para PDF">&#8595; PDF</button>
+      <div class="tsep"></div>
+      <button class="btn btn-ghost" onclick="newExercise()">Novo</button>
+      <button class="btn btn-ghost btn-sm" onclick="delExercise()">Apagar</button>
+      <button class="btn btn-success" onclick="saveExercise()">Guardar</button>
+    </div>
+  </div>
+</div>
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-save">
+  <div class="modal">
+    <h3>Guardar Exercicio</h3>
+    <p>Queres <b>substituir</b> o original ou <b>guardar como novo</b>?</p>
+    <label style="font-size:11px;color:var(--text2);font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;display:block;margin-bottom:5px">Nome</label>
+    <input type="text" id="modal-name">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-save')">Cancelar</button>
+      <button class="btn btn-ghost" onclick="doSaveAs()">Como novo</button>
+      <button class="btn btn-primary" onclick="doOverwrite()">Substituir</button>
+    </div>
+  </div>
+</div>
+<!-- MODAL CLUBE -->
+<div class="modal-overlay" id="modal-club">
+  <div class="modal">
+    <h3>&#9881; Configuração do Clube</h3>
+    <p>Estes dados aparecem no cabeçalho dos PDFs exportados.</p>
+    <label style="font-size:11px;color:var(--text2);font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;display:block;margin-bottom:5px">Nome do Clube</label>
+    <input type="text" id="club-name" placeholder="Ex: Hóquei Clube de Braga">
+    <label style="font-size:11px;color:var(--text2);font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;display:block;margin-bottom:5px">Escalão / Equipa</label>
+    <input type="text" id="club-team" placeholder="Ex: Sénior Masculino">
+    <label style="font-size:11px;color:var(--text2);font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;display:block;margin-bottom:5px">Logo do Clube (PNG/JPG)</label>
+    <input type="file" id="club-logo" accept="image/*" style="font-size:13px;margin-bottom:14px">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-club')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveClubConfig()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-del">
+  <div class="modal">
+    <h3>Apagar Exercicio</h3>
+    <p>Tens a certeza que queres apagar <b id="del-name"></b>?</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-del')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmDel()">Apagar</button>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ═══ SUPABASE ═══
+const SUPABASE_URL = 'https://opjsbnktxpphwrjvxviz.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wanNibmt0eHBwaHdyanZ4dml6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NTkxNDEsImV4cCI6MjA4OTMzNTE0MX0.RfZw2wSV9SzqUUQvvOiF9vqPz8jOPtMwLYPcGaPG76U';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+var FIELD_IMG = 'data:image/png;base64,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';
+var NS = 'http://www.w3.org/2000/svg';
+var exercises = [];
+var currentId = null;
+var selColor = {f:'#555', s:'#222'};
+var selEl = null;
+var dragEl = null, dragOX = 0, dragOY = 0;
+var resizing = false, resizeH = null, resizeStartPt = null, resizeStartSc = 1;
+var tool = 'sel';
+var lineTool = 'move';
+var elId = 0;
+var clipboard = null;
+var undoStack = [];
+var drawing = false;
+var pathPts = [];
+var drawEl = null;
+
+// --- SVG helpers ---
+function ms(tag){ return document.createElementNS(NS, tag); }
+function sa(el, a){ for(var k in a) el.setAttribute(k, String(a[k])); }
+function svgPt(e){
+  var r = document.getElementById('field-svg').getBoundingClientRect();
+  return {x:(e.clientX-r.left)*(680/r.width), y:(e.clientY-r.top)*(420/r.height)};
+}
+function getTr(el){
+  var m = (el.getAttribute('transform')||'').match(/translate\(([^,]+),([^)]+)\)/);
+  return m ? {x:parseFloat(m[1]),y:parseFloat(m[2])} : {x:0,y:0};
+}
+function getSc(el){ return parseFloat(el.getAttribute('data-sc')||'1'); }
+function buildTr(x,y,sc){ return sc!==1 ? 'translate('+x+','+y+') scale('+sc+')' : 'translate('+x+','+y+')'; }
+function hint(msg){ document.getElementById('hint').textContent = msg; }
+
+// --- UNDO ---
+function saveUndo(){
+  var eg = document.getElementById('g-els');
+  var ag = document.getElementById('g-arr');
+  if(!eg) return;
+  undoStack.push({e: eg.innerHTML, a: ag.innerHTML});
+  if(undoStack.length > 40) undoStack.shift();
+  updUndo();
+}
+function undo(){
+  if(!undoStack.length) return;
+  var st = undoStack.pop();
+  document.getElementById('g-els').innerHTML = st.e;
+  document.getElementById('g-arr').innerHTML = st.a;
+  document.querySelectorAll('#g-els > g').forEach(function(g){ makeDrag(g); if(g.getAttribute('data-type')==='textbox') attachTextboxEdit(g); });
+  document.querySelectorAll('#g-arr > g').forEach(function(g){ attachArrEvt(g); });
+  selEl = null;
+  updUndo();
+  hint('Desfeito');
+}
+function updUndo(){
+  var btn = document.getElementById('btn-undo');
+  var inf = document.getElementById('undo-info');
+  if(btn) btn.classList.toggle('active', undoStack.length > 0);
+  if(inf) inf.textContent = undoStack.length > 0 ? undoStack.length+' para desfazer' : '';
+}
+
+// --- BUILD FIELD ---
+function buildField(){
+  var svg = document.getElementById('field-svg');
+  svg.innerHTML = '';
+  var defs = ms('defs');
+  var arrowOpen = function(id,col){ return '<marker id="'+id+'" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="'+col+'" stroke-width="1.8" stroke-linecap="round"/></marker>'; };
+  var arrowSolid = function(id,col){ return '<marker id="'+id+'" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="'+col+'" stroke="'+col+'"/></marker>'; };
+  var arrowBack = function(id,col){ return '<marker id="'+id+'" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M8 1L2 5L8 9" fill="none" stroke="'+col+'" stroke-width="1.8" stroke-linecap="round"/></marker>'; };
+  defs.innerHTML =
+    arrowOpen('am','#111') +
+    arrowOpen('amb','#111') +
+    arrowOpen('adr','#111') +
+    arrowOpen('ap','#111') +
+    arrowSolid('as','#111') +
+    arrowOpen('aft','#111') +
+    arrowOpen('aft2','#111') +
+    arrowOpen('apr','#111') +
+    arrowBack('apr-s','#111') +
+    arrowOpen('acv','#111') +
+    arrowOpen('ab','#111');
+  svg.appendChild(defs);
+  var bg = ms('rect'); sa(bg,{x:0,y:0,width:680,height:420,fill:'#2a2a2a'}); svg.appendChild(bg);
+  var img = ms('image'); sa(img,{x:8,y:6,width:664,height:408,href:FIELD_IMG,preserveAspectRatio:'xMidYMid meet'}); svg.appendChild(img);
+  var gl = ms('g'); gl.id='g-lines'; svg.appendChild(gl);
+  var ge = ms('g'); ge.id='g-els'; svg.appendChild(ge);
+  var ga = ms('g'); ga.id='g-arr'; svg.appendChild(ga);
+  setupEvts();
+  undoStack = []; updUndo();
+}
+
+// --- BBOX ---
+function getBB(type){
+  var b = {
+    attacker:{x:-14,y:-14,w:28,h:28},
+    defender:{x:-14,y:-14,w:28,h:28},
+    'attacker-ball':{x:-14,y:-14,w:28,h:28},
+    gr:{x:-16,y:-12,w:32,h:22},
+    player:{x:-14,y:-14,w:28,h:28},
+    pivot:{x:-14,y:-14,w:28,h:28},
+    goal:{x:-13,y:-14,w:26,h:26},
+    mini:{x:-10,y:-11,w:20,h:20},
+    cone:{x:-6,y:-9,w:12,h:14},
+    curtain:{x:-14,y:-14,w:28,h:28},
+    disc:{x:-8,y:-4,w:16,h:8},
+    stick:{x:-11,y:-26,w:26,h:42},
+    ball:{x:-9,y:-9,w:18,h:18},
+    textbox:{x:-22,y:-14,w:44,h:28}
+  };
+  return b[type] || {x:-14,y:-14,w:28,h:28};
+}
+
+// --- RESIZE HANDLES ---
+// --- TRANSFORM helpers ---
+// transform = translate(x,y) rotate(deg) scale(sc)
+function getRot(el){ return parseFloat(el.getAttribute('data-rot')||'0'); }
+function buildTrFull(x,y,sc,rot,flip){
+  var f = (flip||1);
+  var t='translate('+x+','+y+')';
+  if(rot) t+=' rotate('+rot+')';
+  // scale combina resize (sc) e flip (f para espelhar)
+  var sx = f*sc, sy = sc;
+  if(sx!==1||sy!==1) t+=' scale('+sx+','+sy+')';
+  return t;
+}
+function getFlip(el){ return parseFloat(el.getAttribute('data-flip')||'1'); }
+function applyTr(el){
+  var t=getTr(el), sc=getSc(el), rot=getRot(el);
+  el.setAttribute('transform', buildTrFull(t.x,t.y,sc,rot));
+}
+
+// --- HANDLES (resize + rotate) ---
+var rotating=false, rotateStartAngle=0, rotateStartRot=0, rotateEl=null;
+
+function addHandles(g){
+  g.querySelectorAll('.rh,.sb,.rot-h,.rot-line').forEach(function(h){h.remove();});
+  var type=g.getAttribute('data-type');
+  var sc=getSc(g);
+  var b=getBB(type);
+  var x=b.x*sc, y=b.y*sc, w=b.w*sc, h=b.h*sc;
+  var cx=x+w/2;
+
+  // Border
+  var border=ms('rect'); border.setAttribute('class','sb');
+  sa(border,{x:x,y:y,width:w,height:h,fill:'none',stroke:'#1a56db',
+    'stroke-width':1.5,'stroke-dasharray':'4 2',rx:3,'pointer-events':'none'});
+  g.appendChild(border);
+
+  // Rotate line + handle (topo centro)
+  var rline=ms('line'); rline.setAttribute('class','rot-line');
+  sa(rline,{x1:cx,y1:y,x2:cx,y2:y-22,stroke:'#1a56db','stroke-width':1,'pointer-events':'none'});
+  g.appendChild(rline);
+
+  var roth=ms('circle'); roth.setAttribute('class','rot-h');
+  sa(roth,{cx:cx,cy:y-28,r:6,fill:'white',stroke:'#1a56db','stroke-width':1.5});
+  roth.style.cursor='crosshair';
+  roth.title='Rodar';
+  roth.addEventListener('mousedown',function(e){
+    e.stopPropagation();
+    rotating=true; rotateEl=g;
+    var pt=svgPt(e), t=getTr(g);
+    rotateStartAngle=Math.atan2(pt.y-t.y, pt.x-t.x)*180/Math.PI;
+    rotateStartRot=getRot(g);
+  });
+  g.appendChild(roth);
+
+  // 4 corner resize handles
+  [{cx:x,cy:y,dx:-1,dy:-1},{cx:x+w,cy:y,dx:1,dy:-1},
+   {cx:x,cy:y+h,dx:-1,dy:1},{cx:x+w,cy:y+h,dx:1,dy:1}].forEach(function(c){
+    var rh=ms('rect'); rh.setAttribute('class','rh');
+    sa(rh,{x:c.cx-5,y:c.cy-5,width:10,height:10,fill:'white',
+      stroke:'#1a56db','stroke-width':1.5,rx:2});
+    rh.style.cursor=(c.dx<0&&c.dy<0)?'nw-resize':(c.dx>0&&c.dy<0)?'ne-resize':(c.dx<0)?'sw-resize':'se-resize';
+    (function(cap){ rh.addEventListener('mousedown',function(e){
+      e.stopPropagation();
+      resizing=true; resizeH=cap; resizeStartPt=svgPt(e); resizeStartSc=getSc(g);
+    }); })(c);
+    g.appendChild(rh);
+  });
+}
+function remHandles(g){
+  if(g&&g.querySelectorAll) g.querySelectorAll('.rh,.sb,.rot-h,.rot-line').forEach(function(h){h.remove();});
+}
+
+// --- DRAG ---
+function makeDrag(g){
+  g.style.cursor='grab';
+  // Remove qualquer listener anterior clonando o nó (limpa todos os eventos)
+  var parent = g.parentNode;
+  var next = g.nextSibling;
+  var fresh = g.cloneNode(true);
+  // Copiar atributos de estado
+  fresh.setAttribute('data-sc', g.getAttribute('data-sc')||'1');
+  fresh.setAttribute('data-rot', g.getAttribute('data-rot')||'0');
+  fresh.setAttribute('data-flip', g.getAttribute('data-flip')||'1');
+  fresh.setAttribute('transform', g.getAttribute('transform')||'');
+  // Re-inserir no DOM
+  if(parent){ parent.insertBefore(fresh, next); g.remove(); g=fresh; }
+  g.style.cursor='grab';
+  g.addEventListener('mousedown', function(e){
+    if(tool!=='sel') return;
+    if(e.target.classList.contains('rh')) return;
+    if(e.target.classList.contains('rot-h')) return;
+    if(e.target.classList.contains('cp')) return;
+    e.stopPropagation();
+    saveUndo();
+    selectEl(g);
+    dragEl=g;
+    var pt=svgPt(e), t=getTr(g);
+    dragOX=pt.x-t.x; dragOY=pt.y-t.y;
+    g.style.cursor='grabbing';
+  });
+  // Re-ligar dblclick para textbox
+  if(g.getAttribute('data-type')==='textbox'){
+    attachTextboxEdit(g);
+  }
+  return g;
+}
+
+function attachTextboxEdit(g){
+  var tx = g.querySelector('text');
+  if(!tx) return;
+  g.addEventListener('dblclick',function(e){
+    e.stopPropagation();
+    var svgEl=document.getElementById('field-svg');
+    var bb=svgEl.getBoundingClientRect();
+    var t=getTr(g);
+    var sx=bb.left+(t.x/680)*bb.width;
+    var sy=bb.top+(t.y/420)*bb.height;
+    var inp=document.createElement('input');
+    inp.value=tx.textContent;
+    inp.style.cssText='position:fixed;left:'+(sx-35)+'px;top:'+(sy-16)+'px;width:80px;font-size:15px;font-weight:bold;text-align:center;background:#fff;border:2px solid #1a56db;border-radius:4px;z-index:999;padding:2px 4px;';
+    document.body.appendChild(inp);
+    inp.focus(); inp.select();
+    function done(){ tx.textContent=inp.value||'A'; inp.remove(); }
+    inp.addEventListener('blur',done);
+    inp.addEventListener('keydown',function(ev){ if(ev.key==='Enter'||ev.key==='Escape') done(); });
+  });
+}
+
+function selectEl(el){
+  if(selEl && selEl!==el){ remHandles(selEl); hideArrCtrl(selEl); }
+  selEl=el;
+  if(el && el.getAttribute && el.getAttribute('data-type')!=='arrow') addHandles(el);
+  if(el && el.getAttribute && el.getAttribute('data-type')==='arrow') showArrCtrl(el,true);
+}
+
+// --- ADD ELEMENT ---
+function addEl(type){
+  saveUndo();
+  var ge = document.getElementById('g-els');
+  var cx=220+Math.random()*240, cy=110+Math.random()*200;
+  var g=ms('g');
+  g.setAttribute('id','el-'+(++elId));
+  g.setAttribute('data-type',type);
+  g.setAttribute('data-sc','1');
+  g.setAttribute('transform','translate('+cx+','+cy+')');
+  var fc=selColor.f, sc=selColor.s;
+
+  if(type==='attacker'){
+    // Círculo vazio FPP — jogador em ataque
+    var c=ms('circle'); sa(c,{cx:0,cy:0,r:11,fill:'white',stroke:fc,'stroke-width':2}); g.appendChild(c);
+  } else if(type==='defender'){
+    // Triângulo vazio FPP — jogador em defesa
+    var p=ms('polygon'); sa(p,{points:'0,-12 -11,10 11,10',fill:'white',stroke:fc,'stroke-width':2}); g.appendChild(p);
+  } else if(type==='gr'){
+    // GR FPP — apenas letras GR, sem círculo
+    var tx=ms('text'); sa(tx,{x:0,y:5,'text-anchor':'middle','font-size':14,fill:'#111','font-weight':'bold','font-family':'Arial,sans-serif'}); tx.textContent='GR'; g.appendChild(tx);
+  } else if(type==='goal'){
+    // Baliza normal — escala da antiga "mini" (certa para o campo)
+    var p=ms('path'); sa(p,{d:'M -10,10 L -10,-6 Q -10,-12 0,-12 Q 10,-12 10,-6 L 10,10 Z',fill:'rgba(0,0,0,0.03)',stroke:'#333','stroke-width':2.2,'stroke-linejoin':'round'}); g.appendChild(p);
+    var l=ms('line');sa(l,{x1:-3,y1:-11.5,x2:-3,y2:10,stroke:'#333','stroke-width':1});g.appendChild(l);
+    var l2=ms('line');sa(l2,{x1:3,y1:-11.5,x2:3,y2:10,stroke:'#333','stroke-width':1});g.appendChild(l2);
+    var l3=ms('line');sa(l3,{x1:-10,y1:1,x2:10,y2:1,stroke:'#333','stroke-width':1});g.appendChild(l3);
+    var lb=ms('line');sa(lb,{x1:-10,y1:10,x2:10,y2:10,stroke:'#333','stroke-width':2.2});g.appendChild(lb);
+  } else if(type==='mini'){
+    // Mini baliza — 25% menor que a baliza normal
+    var p=ms('path'); sa(p,{d:'M -7.5,7.5 L -7.5,-4.5 Q -7.5,-9 0,-9 Q 7.5,-9 7.5,-4.5 L 7.5,7.5 Z',fill:'rgba(0,0,0,0.03)',stroke:'#333','stroke-width':1.8,'stroke-linejoin':'round'}); g.appendChild(p);
+    var l=ms('line');sa(l,{x1:-2.5,y1:-8.8,x2:-2.5,y2:7.5,stroke:'#333','stroke-width':0.9});g.appendChild(l);
+    var l2=ms('line');sa(l2,{x1:2.5,y1:-8.8,x2:2.5,y2:7.5,stroke:'#333','stroke-width':0.9});g.appendChild(l2);
+    var l3=ms('line');sa(l3,{x1:-7.5,y1:0.5,x2:7.5,y2:0.5,stroke:'#333','stroke-width':0.9});g.appendChild(l3);
+    var lb=ms('line');sa(lb,{x1:-7.5,y1:7.5,x2:7.5,y2:7.5,stroke:'#333','stroke-width':1.8});g.appendChild(lb);
+  } else if(type==='cone'){
+    // Cone FPP = triângulo sólido preto (50% do original)
+    var poly=ms('polygon');sa(poly,{points:'0,-8 -5,4 5,4',fill:'#111',stroke:'#111','stroke-width':0.8,'stroke-linejoin':'round'});g.appendChild(poly);
+  } else if(type==='curtain'){
+    // Cortina FPP = arco em C — 20% mais aberto e maior
+    var p=ms('path');sa(p,{d:'M 11,-15 Q -20,0 11,15',fill:'none',stroke:'#111','stroke-width':3.5,'stroke-linecap':'round'});g.appendChild(p);
+  } else if(type==='disc'){
+    var e1=ms('ellipse');sa(e1,{cx:0,cy:1,rx:7,ry:2.5,fill:'#dc2626',stroke:'#991b1b','stroke-width':1});g.appendChild(e1);
+    var e2=ms('ellipse');sa(e2,{cx:0,cy:0,rx:7,ry:2.5,fill:'#dc2626',stroke:'#991b1b','stroke-width':1});g.appendChild(e2);
+  } else if(type==='ball'){
+    // Bola FPP = círculo pequeno sólido preto
+    var c=ms('circle');sa(c,{cx:0,cy:0,r:7,fill:'#111',stroke:'#000','stroke-width':1});g.appendChild(c);
+  } else if(type==='textbox'){
+    // Caixa de texto editável
+    var rect=ms('rect');sa(rect,{x:-20,y:-12,width:40,height:24,fill:'rgba(255,255,255,0.85)',stroke:'#555','stroke-width':1,'stroke-dasharray':'3 2',rx:3});g.appendChild(rect);
+    var tx=ms('text');sa(tx,{x:0,y:5,'text-anchor':'middle','font-size':13,fill:'#111','font-weight':'bold','font-family':'Arial,sans-serif'});tx.textContent='A';g.appendChild(tx);
+  }
+  // Legacy support
+  else if(type==='player'){
+    var c=ms('circle'); sa(c,{cx:0,cy:0,r:10,fill:'white',stroke:fc,'stroke-width':2}); g.appendChild(c);
+  } else if(type==='attacker-ball'){
+    var c=ms('circle'); sa(c,{cx:0,cy:0,r:11,fill:'white',stroke:fc,'stroke-width':2}); g.appendChild(c);
+    var d=ms('circle'); sa(d,{cx:0,cy:0,r:3,fill:fc}); g.appendChild(d);
+  } else if(type==='pivot'){
+    var c=ms('circle'); sa(c,{cx:0,cy:0,r:10,fill:'white',stroke:'#7c3aed','stroke-width':2}); g.appendChild(c);
+    var tx=ms('text'); sa(tx,{x:0,y:4,'text-anchor':'middle','font-size':8,fill:'#7c3aed','font-weight':'bold','font-family':'sans-serif'}); tx.textContent='P'; g.appendChild(tx);
+  } else if(type==='stick'){
+    var ln=ms('line');sa(ln,{x1:0,y1:-22,x2:0,y2:10,stroke:'#92400e','stroke-width':3.5,'stroke-linecap':'round'});g.appendChild(ln);
+    var hk=ms('path');sa(hk,{d:'M0,10 Q10,18 12,12',fill:'none',stroke:'#78350f','stroke-width':4,'stroke-linecap':'round'});g.appendChild(hk);
+  }
+  ge.appendChild(g);
+  makeDrag(g);
+  if(type==='textbox') attachTextboxEdit(g);
+  hint('Elemento adicionado - clica para selecionar, cantos para redimensionar, circulo para rodar');
+}
+
+// --- MULTI-POINT PATH ---
+function getLineStyle(){
+  if(lineTool==='move')        return {stroke:'#111',dash:'',         mk:'url(#am)',  sw:2,   type:'move'};
+  if(lineTool==='move-back')   return {stroke:'#111',dash:'6 3',      mk:'url(#amb)', sw:2,   type:'move-back'};
+  if(lineTool==='dribble')     return {stroke:'#111',dash:'',         mk:'url(#adr)', sw:2,   type:'dribble',wavy:true};
+  if(lineTool==='pass')        return {stroke:'#111',dash:'4 3',      mk:'url(#ap)',  sw:1.5, type:'pass'};
+  if(lineTool==='shot')        return {stroke:'#111',dash:'',         mk:'url(#as)',  sw:3.5, type:'shot'};
+  if(lineTool==='feint')       return {stroke:'#111',dash:'',         mk:'url(#aft)', sw:2,   type:'feint'};
+  if(lineTool==='feint2')      return {stroke:'#111',dash:'',         mk:'url(#aft2)',sw:2,   type:'feint2'};
+  if(lineTool==='block')       return {stroke:'#111',dash:'',         mk:'',          sw:2,   type:'block'};
+  if(lineTool==='pass-return') return {stroke:'#111',dash:'4 3',      mk:'url(#apr)', sw:1.5, type:'pass-return',bidir:true};
+  if(lineTool==='curve')       return {stroke:'#111',dash:'',         mk:'url(#acv)', sw:2,   type:'curve'};
+  return {stroke:'#111',dash:'4 2',mk:'url(#ab)',sw:1.5,type:'ball'};
+}
+function mkForType(t){
+  var id='mk-'+t+'-'+elId;
+  var col='#111';
+  var marker=ms('marker');
+  // feint2 uses same arrow style as feint
+  var baseType = (t==='feint2') ? 'feint' : t;
+  sa(marker,{id:id,viewBox:'0 0 10 10',refX:'8',refY:'5',
+    markerWidth: baseType==='shot'?'6':'5', markerHeight: baseType==='shot'?'6':'5',
+    orient:'auto-start-reverse'});
+  if(baseType==='shot'){
+    var p=ms('path');sa(p,{d:'M1 1L9 5L1 9',fill:col,stroke:col,'stroke-width':'1'});
+    marker.appendChild(p);
+  } else {
+    var p=ms('path');sa(p,{d:'M2 1L8 5L2 9',fill:'none',stroke:col,'stroke-width':'1.8','stroke-linecap':'round'});
+    marker.appendChild(p);
+  }
+  return {marker:marker, id:id};
+}
+function mkBackForType(t){
+  var id='mkb-'+t+'-'+elId;
+  var col='#111';
+  var marker=ms('marker');
+  sa(marker,{id:id,viewBox:'0 0 10 10',refX:'2',refY:'5',
+    markerWidth:'5', markerHeight:'5', orient:'auto'});
+  var p=ms('path');sa(p,{d:'M8 1L2 5L8 9',fill:'none',stroke:col,'stroke-width':'1.8','stroke-linecap':'round'});
+  marker.appendChild(p);
+  return {marker:marker, id:id};
+}
+
+function startPath(pt){
+  saveUndo();
+  var ga = document.getElementById('g-arr');
+  var ls = getLineStyle();
+  pathPts = [{x:pt.x,y:pt.y}];
+  var g = ms('g');
+  g.setAttribute('data-type','arrow');
+  g.setAttribute('data-ltype', ls.type);
+  g.setAttribute('data-pts', JSON.stringify(pathPts));
+  g.id = 'arr-'+(++elId);
+  var defs2 = ms('defs');
+  // block type has no arrow marker
+  if(ls.type !== 'block'){
+    var mk = mkForType(ls.type);
+    defs2.appendChild(mk.marker);
+    // bidirectional for pass-return
+    if(ls.bidir){
+      var mkb = mkBackForType(ls.type);
+      defs2.appendChild(mkb.marker);
+      g.setAttribute('data-mkb-id', mkb.id);
+    }
+    g.setAttribute('data-mk-id', mk.id);
+  }
+  g.appendChild(defs2);
+  var path = ms('path'); path.setAttribute('class','apath');
+  var markerEnd = (ls.type!=='block' && ls.mk) ? 'url(#'+g.getAttribute('data-mk-id')+')' : '';
+  var markerStart = ls.bidir ? 'url(#'+g.getAttribute('data-mkb-id')+')' : '';
+  sa(path,{d:'M '+pt.x+','+pt.y,fill:'none',stroke:ls.stroke,
+    'stroke-width':ls.sw,'stroke-linecap':'round','stroke-linejoin':'round'});
+  if(markerEnd) path.setAttribute('marker-end', markerEnd);
+  if(markerStart) path.setAttribute('marker-start', markerStart);
+  if(ls.dash) path.setAttribute('stroke-dasharray',ls.dash);
+  g.appendChild(path);
+  // block: add perpendicular end cap (drawn on finishPath)
+  var ng = ms('g'); ng.setAttribute('class','nodes'); ng.setAttribute('opacity',0); g.appendChild(ng);
+  var prev = ms('line'); prev.setAttribute('class','prev-line');
+  sa(prev,{x1:pt.x,y1:pt.y,x2:pt.x,y2:pt.y,stroke:ls.stroke,
+    'stroke-width':ls.sw,opacity:0.4,'stroke-dasharray':'4 3'});
+  g.appendChild(prev);
+  makeArrDrag(g);
+  attachArrEvt(g);
+  ga.appendChild(g);
+  drawEl = g;
+  drawing = true;
+  addNodeDot(g, pt, 0);
+  hint('Clica para adicionar pontos - duplo-clique para terminar - Esc para cancelar');
+}
+
+function addPt(pt){
+  if(!drawEl) return;
+  pathPts.push({x:pt.x,y:pt.y});
+  drawEl.setAttribute('data-pts', JSON.stringify(pathPts));
+  rebuildPath(drawEl, pathPts, null);
+  addNodeDot(drawEl, pt, pathPts.length-1);
+}
+
+function finishPath(){
+  if(!drawEl) return;
+  var pl = drawEl.querySelector('.prev-line');
+  if(pl) pl.remove();
+  rebuildPath(drawEl, pathPts, null);
+  drawEl.setAttribute('data-pts', JSON.stringify(pathPts));
+  // esconder nodes até selecionar
+  showArrCtrl(drawEl, false);
+  drawing=false; pathPts=[]; drawEl=null;
+  // Voltar automaticamente ao modo selecionar
+  tool='sel';
+  document.getElementById('btn-sel').classList.add('active');
+  document.getElementById('btn-draw').classList.remove('active');
+  document.getElementById('field-svg').className='';
+  hint('Seta criada - clica para selecionar e ajustar');
+}
+
+function rebuildPath(g, pts, extra){
+  var path = g.querySelector('.apath');
+  if(!path||pts.length===0) return;
+  var ltype = g.getAttribute('data-ltype')||'move';
+  var all = extra ? pts.concat([extra]) : pts;
+  var d;
+
+  if(ltype === 'dribble' && all.length >= 2){
+    // wavy path: zigzag perpendicular to direction
+    d = buildWavyPath(all);
+  } else if(ltype === 'feint' && all.length >= 2){
+    d = buildFeintPath(all, 1);
+  } else if(ltype === 'feint2' && all.length >= 2){
+    d = buildFeintPath(all, 2);
+  } else if(ltype === 'block' && all.length >= 2){
+    // straight line, block cap drawn separately
+    var p0=all[0], p1=all[all.length-1];
+    d = 'M '+p0.x+','+p0.y+' L '+p1.x+','+p1.y;
+    // update or create the block cap line
+    var bc = g.querySelector('.block-cap');
+    var dx=p1.x-p0.x, dy=p1.y-p0.y, len=Math.sqrt(dx*dx+dy*dy)||1;
+    var nx=-dy/len*12, ny=dx/len*12;
+    if(!bc){ bc=ms('line'); bc.setAttribute('class','block-cap'); g.insertBefore(bc,g.querySelector('.nodes')); }
+    sa(bc,{x1:p1.x+nx,y1:p1.y+ny,x2:p1.x-nx,y2:p1.y-ny,stroke:'#111','stroke-width':3,'stroke-linecap':'round'});
+  } else {
+    d = 'M '+all[0].x+','+all[0].y;
+    if(all.length===2){
+      d += ' L '+all[1].x+','+all[1].y;
+    } else if(all.length>2){
+      for(var i=0;i<all.length-1;i++){
+        var p0=all[Math.max(0,i-1)], p1=all[i], p2=all[i+1], p3=all[Math.min(all.length-1,i+2)];
+        var cp1x=p1.x+(p2.x-p0.x)/6, cp1y=p1.y+(p2.y-p0.y)/6;
+        var cp2x=p2.x-(p3.x-p1.x)/6, cp2y=p2.y-(p3.y-p1.y)/6;
+        d += ' C '+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+p2.x+','+p2.y;
+      }
+    }
+  }
+  path.setAttribute('d',d);
+  var prev = g.querySelector('.prev-line');
+  if(prev && extra && pts.length>0){
+    var last=pts[pts.length-1];
+    sa(prev,{x1:last.x,y1:last.y,x2:extra.x,y2:extra.y});
+  }
+}
+
+function buildWavyPath(pts){
+  // build a wavy line along the path between all points
+  var p0=pts[0], p1=pts[pts.length-1];
+  var dx=p1.x-p0.x, dy=p1.y-p0.y;
+  var len=Math.sqrt(dx*dx+dy*dy)||1;
+  var nx=-dy/len, ny=dx/len; // perpendicular
+  var waves=Math.max(3,Math.round(len/18));
+  var amp=6;
+  var d='M '+p0.x+','+p0.y;
+  for(var i=0;i<waves;i++){
+    var t1=(i+0.5)/waves, t2=(i+1)/waves;
+    var sign=(i%2===0)?1:-1;
+    var mx=p0.x+dx*t1+nx*amp*sign, my=p0.y+dy*t1+ny*amp*sign;
+    var ex=p0.x+dx*t2, ey=p0.y+dy*t2;
+    d += ' Q '+mx+','+my+' '+ex+','+ey;
+  }
+  return d;
+}
+
+function buildFeintPath(pts, peaks){
+  peaks = peaks || 1;
+  var p0=pts[0], p1=pts[pts.length-1];
+  var dx=p1.x-p0.x, dy=p1.y-p0.y;
+  var len=Math.sqrt(dx*dx+dy*dy)||1;
+  var nx=-dy/len, ny=dx/len;
+  var amp=10;
+  if(peaks===1){
+    var mx=p0.x+dx*0.5+nx*amp, my=p0.y+dy*0.5+ny*amp;
+    return 'M '+p0.x+','+p0.y+' L '+mx+','+my+' L '+p1.x+','+p1.y;
+  } else {
+    // dois picos — divide em 3 segmentos, picos alternados
+    var m1x=p0.x+dx*0.33+nx*amp,  m1y=p0.y+dy*0.33+ny*amp;
+    var m2x=p0.x+dx*0.67-nx*amp,  m2y=p0.y+dy*0.67-ny*amp;
+    return 'M '+p0.x+','+p0.y+' L '+m1x+','+m1y+' L '+m2x+','+m2y+' L '+p1.x+','+p1.y;
+  }
+}
+
+function addNodeDot(g, pt, idx){
+  var ng = g.querySelector('.nodes');
+  if(!ng) return;
+  var h = ms('circle'); h.setAttribute('class','cp');
+  sa(h,{cx:pt.x,cy:pt.y,r:5,fill:'white',stroke:'#1a56db','stroke-width':1.5,cursor:'move',opacity:0.85});
+  var dragging=false;
+  h.addEventListener('mousedown',function(e){
+    e.stopPropagation();
+    dragging=true;
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  function onMove(e){
+    if(!dragging) return;
+    var np=svgPt(e);
+    pt.x=np.x; pt.y=np.y;
+    sa(h,{cx:pt.x,cy:pt.y});
+    var stored=JSON.parse(g.getAttribute('data-pts')||'[]');
+    stored[idx]={x:pt.x,y:pt.y};
+    g.setAttribute('data-pts',JSON.stringify(stored));
+    rebuildPath(g,stored,null);
+  }
+  function onUp(){ dragging=false; document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); }
+  ng.appendChild(h);
+}
+
+function showArrCtrl(g,show){ var ng=g&&g.querySelector('.nodes'); if(ng) ng.setAttribute('opacity',show?1:0); }
+function hideArrCtrl(g){ if(g&&g.getAttribute&&g.getAttribute('data-type')==='arrow') showArrCtrl(g,false); }
+
+function makeArrDrag(g){
+  g.addEventListener('mousedown',function(e){
+    if(tool!=='sel') return;
+    if(e.target.classList.contains('cp')) return;
+    e.stopPropagation();
+    saveUndo();
+    selectEl(g);
+    // drag da seta inteira — move todos os pontos
+    var startPt = svgPt(e);
+    var origPts = JSON.parse(g.getAttribute('data-pts')||'[]').map(function(p){return{x:p.x,y:p.y};});
+    function onMove(e2){
+      var cur=svgPt(e2);
+      var dx=cur.x-startPt.x, dy=cur.y-startPt.y;
+      var newPts=origPts.map(function(p){return{x:p.x+dx,y:p.y+dy};});
+      g.setAttribute('data-pts',JSON.stringify(newPts));
+      rebuildPath(g,newPts,null);
+      // mover node handles
+      var handles=g.querySelectorAll('.cp');
+      handles.forEach(function(h,i){
+        if(newPts[i]){ sa(h,{cx:newPts[i].x,cy:newPts[i].y}); }
+      });
+    }
+    function onUp(){
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+    }
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+}
+
+function attachArrEvt(g){
+  // apenas para setas já guardadas (sem drag novo — makeArrDrag já foi chamado)
+  if(!g._arrEvt){
+    g._arrEvt=true;
+    makeArrDrag(g);
+  }
+}
+
+// --- EVENTS ---
+function setupEvts(){
+  var svg = document.getElementById('field-svg');
+  // Click vs dblclick — usar timer para distinguir
+  var clickTimer = null;
+  var clickCount = 0;
+  svg.addEventListener('click',function(e){
+    if(tool!=='draw') return;
+    e.preventDefault();
+    clickCount++;
+    var pt = svgPt(e);
+    if(clickTimer) clearTimeout(clickTimer);
+    clickTimer = setTimeout(function(){
+      if(clickCount===1){
+        // clique simples — adicionar ponto
+        if(!drawing) startPath(pt);
+        else addPt(pt);
+      } else {
+        // duplo clique — terminar seta
+        if(drawing) finishPath();
+      }
+      clickCount=0;
+      clickTimer=null;
+    }, 220);
+  });
+  svg.addEventListener('dblclick',function(e){
+    e.preventDefault();
+    // tratado pelo timer acima
+  });
+  svg.addEventListener('mousemove',function(e){
+    var pt=svgPt(e);
+    if(dragEl&&!resizing&&!rotating){
+      var sc=getSc(dragEl), rot=getRot(dragEl);
+      dragEl.setAttribute('transform',buildTrFull(pt.x-dragOX,pt.y-dragOY,sc,rot,getFlip(dragEl)));
+    }
+    if(resizing&&selEl){
+      var bb=getBB(selEl.getAttribute('data-type'));
+      var d=(pt.x-resizeStartPt.x)*resizeH.dx+(pt.y-resizeStartPt.y)*resizeH.dy;
+      var ns=Math.max(0.3,Math.min(4,resizeStartSc+d/Math.max(bb.w,bb.h)));
+      selEl.setAttribute('data-sc',ns);
+      var t=getTr(selEl), rot=getRot(selEl);
+      selEl.setAttribute('transform',buildTrFull(t.x,t.y,ns,rot,getFlip(selEl)));
+      addHandles(selEl);
+    }
+    if(rotating&&rotateEl){
+      var t=getTr(rotateEl);
+      var angle=Math.atan2(pt.y-t.y, pt.x-t.x)*180/Math.PI;
+      var newRot=rotateStartRot+(angle-rotateStartAngle);
+      rotateEl.setAttribute('data-rot',newRot);
+      var sc=getSc(rotateEl);
+      rotateEl.setAttribute('transform',buildTrFull(t.x,t.y,sc,newRot,getFlip(rotateEl)));
+      addHandles(rotateEl);
+    }
+    if(drawing&&drawEl) rebuildPath(drawEl,pathPts,pt);
+  });
+  svg.addEventListener('mouseup',function(){
+    if(dragEl){dragEl.style.cursor='grab';dragEl=null;}
+    resizing=false;resizeH=null;resizeStartPt=null;
+    rotating=false;rotateEl=null;
+  });
+  svg.addEventListener('mousedown',function(e){
+    var ce=e.target.closest('#g-els > g');
+    var ca=e.target.closest('#g-arr > g');
+    var icp=e.target.classList.contains('cp');
+    var irh=e.target.classList.contains('rh');
+    if(!ce&&!ca&&!icp&&!irh){
+      if(selEl){remHandles(selEl);hideArrCtrl(selEl);selEl=null;}
+    }
+  });
+  document.addEventListener('keydown',function(e){
+    var t=document.activeElement.tagName;
+    if(t==='INPUT'||t==='TEXTAREA') return;
+    if(e.key==='Delete'||e.key==='Backspace') delSel();
+    if(e.ctrlKey&&e.key==='c'){e.preventDefault();copySel();}
+    if(e.ctrlKey&&e.key==='v'){e.preventDefault();pasteEl();}
+    if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo();}
+    if(e.key==='Escape'&&drawing) finishPath();
+  });
+}
+
+// --- TOOLS ---
+function setTool(t){
+  if(t==='sel'&&drawing) finishPath();
+  tool=t;
+  document.getElementById('btn-sel').classList.toggle('active',t==='sel');
+  document.getElementById('btn-draw').classList.toggle('active',t==='draw');
+  document.getElementById('field-svg').className = t==='draw'?'draw':'';
+  hint(t==='sel'?'Seleciona, arrasta, redimensiona (cantos), Delete para apagar':'Clica para pontos, duplo-clique para terminar, Esc cancela');
+}
+function setLT(t){
+  if(drawing) finishPath();
+  lineTool=t;
+  var allTypes=['move','move-back','dribble','pass','shot','feint','feint2','block','pass-return','curve','ball'];
+  allTypes.forEach(function(n){
+    var el=document.getElementById('lt-'+n);
+    if(el) el.classList.toggle('active',n===t);
+  });
+  setTool('draw');
+}
+
+// --- DELETE / COPY / PASTE ---
+function flipSel(){
+  if(!selEl||selEl.getAttribute('data-type')==='arrow') return;
+  saveUndo();
+  var f = getFlip(selEl)*-1;
+  selEl.setAttribute('data-flip', f);
+  var t=getTr(selEl), sc=getSc(selEl), rot=getRot(selEl);
+  selEl.setAttribute('transform',buildTrFull(t.x,t.y,sc,rot,f));
+  addHandles(selEl);
+  hint('Espelhado');
+}
+function delSel(){
+  if(!selEl) return;
+  saveUndo(); remHandles(selEl); selEl.remove(); selEl=null;
+  hint('Apagado - Ctrl+Z para desfazer');
+}
+function clearAll(){
+  if(!confirm('Limpar todos os elementos?')) return;
+  saveUndo();
+  document.getElementById('g-els').innerHTML='';
+  document.getElementById('g-arr').innerHTML='';
+  selEl=null;
+}
+function copySel(){ if(!selEl) return; clipboard=selEl; hint('Copiado - Ctrl+V para colar'); }
+function pasteEl(){
+  if(!clipboard) return;
+  saveUndo();
+  var type=clipboard.getAttribute('data-type');
+  var clone=clipboard.cloneNode(true);
+  clone.id=(type==='arrow'?'arr-':'el-')+(++elId);
+  clone.querySelectorAll('.rh,.sb').forEach(function(h){h.remove();});
+  if(type==='arrow'){
+    var pts=JSON.parse(clipboard.getAttribute('data-pts')||'[]');
+    var np=pts.map(function(p){return{x:p.x+20,y:p.y+20};});
+    clone.setAttribute('data-pts',JSON.stringify(np));
+    rebuildPath(clone,np,null);
+    var ng=clone.querySelector('.nodes');
+    if(ng){ng.innerHTML=''; np.forEach(function(p,i){addNodeDot(clone,p,i);});}
+    attachArrEvt(clone);
+    document.getElementById('g-arr').appendChild(clone);
+  } else {
+    var t=getTr(clipboard), sc=getSc(clipboard);
+    clone.removeAttribute('data-drag-set');
+    clone.setAttribute('data-sc', sc);
+    clone.setAttribute('data-rot', getRot(clipboard));
+    clone.setAttribute('data-flip', getFlip(clipboard));
+    clone.setAttribute('transform',buildTrFull(t.x+20,t.y+20,sc,getRot(clipboard),getFlip(clipboard)));
+    document.getElementById('g-els').appendChild(clone);
+    makeDrag(clone);
+  }
+  selectEl(clone);
+  hint('Colado');
+}
+
+// --- COLOR ---
+document.querySelectorAll('.cdot').forEach(function(d){
+  d.addEventListener('click',function(){
+    document.querySelectorAll('.cdot').forEach(function(x){x.classList.remove('sel');});
+    d.classList.add('sel');
+    selColor={f:d.getAttribute('data-c'),s:d.getAttribute('data-s')||d.getAttribute('data-c')};
+  });
+});
+
+// --- TABS ---
+function switchTab(tab){
+  document.getElementById('tab-btn-fields').classList.toggle('active',tab==='fields');
+  document.getElementById('tab-btn-field').classList.toggle('active',tab==='field');
+  var pf=document.getElementById('pane-fields');
+  var pc=document.getElementById('pane-field');
+  if(tab==='fields'){pf.classList.add('active');pc.classList.remove('active');}
+  else{pc.classList.add('active');pf.classList.remove('active');}
+}
+
+// --- CRUD ---
+function getFD(){
+  return {
+    title:document.getElementById('f-title').value||'Sem titulo',
+    escalao:document.getElementById('f-escalao').value,
+    categoria:document.getElementById('f-categoria').value,
+    duracao:document.getElementById('f-duracao').value,
+    series:document.getElementById('f-series').value,
+    objetivo:document.getElementById('f-objetivo').value,
+    elementos:document.getElementById('f-elementos').value,
+    pontos:document.getElementById('f-pontos').value,
+    descricao:document.getElementById('f-descricao').value,
+    jogadores:document.getElementById('f-jogadores').value,
+    material:document.getElementById('f-material').value,
+    variantes:document.getElementById('f-variantes').value,
+    notas:document.getElementById('f-notas').value,
+    fieldEl:document.getElementById('g-els').innerHTML,
+    fieldAr:document.getElementById('g-arr').innerHTML
+  };
+}
+function setFD(ex){
+  ['title','escalao','categoria','duracao','series','objetivo','elementos','pontos','descricao','jogadores','material','variantes','notas'].forEach(function(k){
+    var el=document.getElementById('f-'+k); if(el){if(el.tagName==='SELECT')el.value=ex[k]||''; else el.value=ex[k]||'';}
+  });
+  buildField();
+  setTimeout(function(){
+    // restaurar SVG — primeiro tenta fieldEl/fieldAr (formato antigo), depois svg_data (Supabase)
+    if(ex.fieldEl || ex.fieldAr){
+      if(ex.fieldEl) document.getElementById('g-els').innerHTML=ex.fieldEl;
+      if(ex.fieldAr) document.getElementById('g-arr').innerHTML=ex.fieldAr;
+    } else if(ex.svg_data){
+      var parser=new DOMParser();
+      var doc=parser.parseFromString(ex.svg_data,'image/svg+xml');
+      var gels=doc.querySelector('#g-els');
+      var garr=doc.querySelector('#g-arr');
+      if(gels) document.getElementById('g-els').innerHTML=gels.innerHTML;
+      if(garr) document.getElementById('g-arr').innerHTML=garr.innerHTML;
+    }
+    document.querySelectorAll('#g-els > g').forEach(function(g){
+      g.removeAttribute('data-drag-set');
+      makeDrag(g);
+    });
+    document.querySelectorAll('#g-arr > g').forEach(function(g){attachArrEvt(g);});
+  },60);
+  document.getElementById('bname').innerHTML='<span>Exercicio: </span>'+(ex.title||'');
+}
+function clearFD(){
+  ['title','escalao','categoria','duracao','series','objetivo','elementos','pontos','descricao','jogadores','material','variantes','notas'].forEach(function(k){
+    var el=document.getElementById('f-'+k); if(el){if(el.tagName==='SELECT')el.selectedIndex=0; else el.value='';}
+  });
+  buildField();
+  document.getElementById('bname').innerHTML='<span>Exercicio: </span>Novo exercicio';
+}
+function newExercise(){ currentId=null; clearFD(); document.querySelectorAll('.ex-item').forEach(function(i){i.classList.remove('active');}); switchTab('fields'); }
+function saveExercise(){
+  var t=document.getElementById('f-title').value;
+  if(!t.trim()){alert('Introduz um titulo.');return;}
+  if(!currentId){doSave(t,true);return;}
+  document.getElementById('modal-name').value=t;
+  openModal('modal-save');
+}
+function doOverwrite(){ doSave(document.getElementById('modal-name').value||'Sem titulo',false); closeModal('modal-save'); }
+function doSaveAs(){ currentId=null; doSave((document.getElementById('modal-name').value||'Sem titulo')+' (copia)',true); closeModal('modal-save'); }
+async function doSave(title,isNew){
+  hint('A guardar...');
+  var svg = document.getElementById('field-svg');
+  var svgData = svg ? svg.outerHTML : '';
+  var now = new Date().toISOString();
+  var data = Object.assign(getFD(), {
+    titulo: title,
+    id: isNew ? ('ex-'+Date.now()) : currentId,
+    svg_data: svgData,
+    criado_em: isNew ? now : (exercises.find(function(e){return e.id===currentId;})||{}).criado_em || now,
+    atualizado_em: now
+  });
+  // manter compatibilidade com campo 'title' local
+  data.titulo = title;
+  try {
+    var {error} = await sb.from('exercicios').upsert({
+      id: data.id,
+      titulo: title,
+      escalao: data.escalao||'',
+      categoria: data.categoria||'',
+      duracao: parseInt(data.duracao)||null,
+      objetivo: data.objetivo||'',
+      descricao: data.descricao||'',
+      componentes: data.pontos||'',
+      erros: '',
+      progressao: data.variantes||'',
+      material: data.material||'',
+      svg_data: svgData,
+      criado_em: data.criado_em,
+      atualizado_em: now
+    });
+    if(error) throw error;
+    // atualizar lista local
+    data.id = data.id;
+    data.title = title;
+    if(isNew){ exercises.push(data); currentId=data.id; }
+    else { var i=exercises.findIndex(function(e){return e.id===currentId;}); if(i>=0)exercises[i]=data; }
+    renderList();
+    document.getElementById('bname').innerHTML='<span>Exercicio: </span>'+title;
+    hint('✅ Guardado no Supabase!');
+    setTimeout(function(){hint('');},3000);
+  } catch(err) {
+    hint('❌ Erro ao guardar: '+err.message);
+    console.error(err);
+  }
+}
+function delExercise(){
+  if(!currentId) return;
+  var ex=exercises.find(function(e){return e.id===currentId;});
+  if(!ex) return;
+  document.getElementById('del-name').textContent='"'+ex.title+'"';
+  openModal('modal-del');
+}
+async function confirmDel(){
+  try {
+    var {error} = await sb.from('exercicios').delete().eq('id', currentId);
+    if(error) throw error;
+    exercises = exercises.filter(function(e){return e.id!==currentId;});
+    currentId=null; clearFD(); renderList(); closeModal('modal-del');
+    hint('✅ Exercício apagado.');
+    setTimeout(function(){hint('');},3000);
+  } catch(err) {
+    hint('❌ Erro ao apagar: '+err.message);
+    closeModal('modal-del');
+  }
+}
+function renderList(){
+  var list=document.getElementById('ex-list');
+  if(!exercises.length){list.innerHTML='<div class="empty-lib">Nenhum exercicio guardado.<br>Clica em <b>+ Novo</b> para comecar.</div>';return;}
+  list.innerHTML=exercises.map(function(ex){
+    return '<div class="ex-item'+(ex.id===currentId?' active':'')+'" onclick="loadEx(\''+ex.id+'\')">'+
+      '<div class="ex-item-title">'+ex.title+'</div>'+
+      '<div class="ex-item-meta">'+(([ex.escalao,ex.categoria,ex.duracao?ex.duracao+'min':''].filter(Boolean).join(' · '))||'—')+'</div></div>';
+  }).join('');
+}
+function loadEx(id){
+  var ex=exercises.find(function(e){return e.id===id;});
+  if(!ex) return;
+  currentId=id; setFD(ex); renderList();
+}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(function(m){
+  m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('open');});
+});
+
+// --- CLUB CONFIG ---
+var clubConfig = JSON.parse(localStorage.getItem('hk_club')||'{"name":"","team":"","logo":""}'); // config local (nao vai para Supabase)
+
+function showClubConfig(){
+  document.getElementById('club-name').value = clubConfig.name||'';
+  document.getElementById('club-team').value = clubConfig.team||'';
+  openModal('modal-club');
+}
+function saveClubConfig(){
+  clubConfig.name = document.getElementById('club-name').value;
+  clubConfig.team = document.getElementById('club-team').value;
+  var fileInput = document.getElementById('club-logo');
+  if(fileInput.files && fileInput.files[0]){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      clubConfig.logo = e.target.result;
+      localStorage.setItem('hk_club', JSON.stringify(clubConfig));
+    };
+    reader.readAsDataURL(fileInput.files[0]);
+  } else {
+    localStorage.setItem('hk_club', JSON.stringify(clubConfig));
+  }
+  closeModal('modal-club');
+  hint('Configuração do clube guardada');
+}
+
+// --- IMPORT JSON ---
+async function importJSON(input){
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = async function(e){
+    try {
+      var imported = JSON.parse(e.target.result);
+      if(!Array.isArray(imported)) throw new Error('Formato invalido');
+      var added=0, skipped=0;
+      for(var i=0;i<imported.length;i++){
+        var ex=imported[i];
+        if(!ex.id||!ex.title){ skipped++; continue; }
+        var exists = exercises.find(function(x){return x.id===ex.id;});
+        if(exists){ skipped++; continue; }
+        var rec={
+          id:ex.id, titulo:ex.title||ex.titulo||'Importado',
+          escalao:ex.escalao||'', categoria:ex.categoria||'',
+          duracao:parseInt(ex.duracao)||null,
+          objetivo:ex.objetivo||'', descricao:ex.descricao||'',
+          componentes:ex.pontos||ex.componentes||'',
+          progressao:ex.variantes||ex.progressao||'',
+          material:ex.material||'', svg_data:ex.svg_data||'',
+          criado_em:ex.criado_em||new Date().toISOString(),
+          atualizado_em:new Date().toISOString()
+        };
+        await sb.from('exercicios').upsert(rec);
+        exercises.push(Object.assign({},ex,{title:rec.titulo}));
+        added++;
+      }
+      renderList();
+      hint('Importados: '+added+' exercicios. Ja existiam: '+skipped);
+      setTimeout(function(){hint('');},4000);
+    } catch(err){
+      alert('Erro ao importar: ficheiro JSON invalido. '+err.message);
+    }
+    input.value='';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// --- EXPORT JSON ---
+function exportJSON(){
+  var data = JSON.stringify(exercises, null, 2);
+  var blob = new Blob([data], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'exercicios_hockey.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  hint('Exercicios exportados para JSON');
+}
+
+// --- EXPORT PDF ---
+function exportPDF(){
+  if(!currentId){ alert('Seleciona um exercicio primeiro.'); return; }
+  var ex = exercises.find(function(e){return e.id===currentId;});
+  if(!ex){ alert('Exercicio nao encontrado.'); return; }
+
+  var jsPDF = window.jspdf.jsPDF;
+  var doc = new jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+  var W=297, H=210, M=10;
+
+  // --- Fontes e cores ---
+  var cBlue = [26,86,219];
+  var cGray = [90,106,138];
+  var cDark = [26,26,46];
+  var cBorder = [208,213,232];
+
+  // Normalizar caracteres especiais para PDF (helvetica nao suporta UTF-8 completo)
+  function pdfStr(s){
+    if(!s) return '';
+    return s
+      .replace(/\u00e7/g,'c').replace(/\u00c7/g,'C')  // ç Ç
+      .replace(/\u00e3/g,'a').replace(/\u00c3/g,'A')  // ã Ã
+      .replace(/\u00f5/g,'o').replace(/\u00d5/g,'O')  // õ Õ
+      .replace(/\u00e1/g,'a').replace(/\u00c1/g,'A')  // á Á
+      .replace(/\u00e9/g,'e').replace(/\u00c9/g,'E')  // é É
+      .replace(/\u00ed/g,'i').replace(/\u00cd/g,'I')  // í Í
+      .replace(/\u00f3/g,'o').replace(/\u00d3/g,'O')  // ó Ó
+      .replace(/\u00fa/g,'u').replace(/\u00da/g,'U')  // ú Ú
+      .replace(/\u00e0/g,'a').replace(/\u00c0/g,'A')  // à À
+      .replace(/\u00e2/g,'a').replace(/\u00c2/g,'A')  // â Â
+      .replace(/\u00ea/g,'e').replace(/\u00ca/g,'E')  // ê Ê
+      .replace(/\u00f4/g,'o').replace(/\u00d4/g,'O')  // ô Ô
+      .replace(/\u00fc/g,'u').replace(/\u00dc/g,'U')  // ü Ü
+      .replace(/\u00e4/g,'a').replace(/\u00c4/g,'A')  // ä Ä
+      .replace(/\u00f6/g,'o').replace(/\u00d6/g,'O'); // ö Ö
+  }
+
+  // --- CABEÇALHO ---
+  doc.setFillColor(26,86,219);
+  doc.rect(0,0,W,18,'F');
+
+  // Logo do clube (se existir)
+  var logoX = M;
+  if(clubConfig.logo){
+    try{ doc.addImage(clubConfig.logo,'PNG',M,1,16,16); logoX=M+18; }catch(e){}
+  }
+
+  // Nome do clube
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(14);
+  doc.setTextColor(255,255,255);
+  var cName = pdfStr(clubConfig.name || 'Editor de Exercicios - Hoquei em Patins');
+  doc.text(cName, logoX, 8);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  if(clubConfig.team) doc.text(pdfStr(clubConfig.team), logoX, 13);
+
+  // Titulo do exercicio (direita)
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  doc.text(pdfStr(ex.title||'Sem titulo'), W-M, 8, {align:'right'});
+  doc.setFontSize(8);
+  doc.setFont('helvetica','normal');
+  var metaParts = [ex.escalao, ex.categoria, ex.duracao ? ex.duracao+'min' : ''].filter(Boolean).map(pdfStr);
+  if(metaParts.length) doc.text(metaParts.join('  |  '), W-M, 13, {align:'right'});
+
+  var y = 22;
+
+  // --- LAYOUT: campo maior direita (65%), ficha esquerda (35%) ---
+  var colLW = 93;
+  var colL = M;
+  var colR = M + colLW + 5;
+  var colRW = W - colR - M;
+
+  // --- CAPTURAR CAMPO (fundo branco) ---
+  var svg = document.getElementById('field-svg');
+  var bgRect = svg.querySelector('rect');
+  var origFill = bgRect ? bgRect.getAttribute('fill') : null;
+  if(bgRect) bgRect.setAttribute('fill','#ffffff');
+  var svgData = new XMLSerializer().serializeToString(svg);
+  if(bgRect && origFill) bgRect.setAttribute('fill', origFill);
+
+  var svgBlob = new Blob([svgData], {type:'image/svg+xml;charset=utf-8'});
+  var svgUrl = URL.createObjectURL(svgBlob);
+  var canvas = document.createElement('canvas');
+  canvas.width = 680*2; canvas.height = 420*2;
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  var img = new Image();
+  img.onload = function(){
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(svgUrl);
+    var imgData = canvas.toDataURL('image/png');
+
+    // Campo no PDF
+    var fieldH = colRW * (420/680);
+    doc.addImage(imgData,'PNG', colR, y, colRW, fieldH);
+    doc.setDrawColor(cBorder[0],cBorder[1],cBorder[2]);
+    doc.setLineWidth(0.3);
+    doc.rect(colR, y, colRW, fieldH);
+
+    // --- FICHA (esquerda) ---
+    var fy = y;
+    var lh = 5.2;
+
+    function label(txt, yy){
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(cBlue[0],cBlue[1],cBlue[2]);
+      doc.text(pdfStr(txt).toUpperCase(), colL, yy);
+    }
+    function value(txt, yy, maxW){
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(cDark[0],cDark[1],cDark[2]);
+      if(!txt||txt.trim()==='') return 0;
+      var lines = doc.splitTextToSize(pdfStr(txt), maxW||colLW);
+      doc.text(lines, colL, yy);
+      return lines.length;
+    }
+    function divider(yy){
+      doc.setDrawColor(cBorder[0],cBorder[1],cBorder[2]);
+      doc.setLineWidth(0.15);
+      doc.line(colL, yy, colL+colLW, yy);
+    }
+
+    var blocks = [
+      {l:'Objetivo', v: ex.objetivo},
+      {l:'Elementos do Conteudo', v: ex.elementos},
+      {l:'Pontos Chave', v: ex.pontos},
+      {l:'Descricao', v: ex.descricao},
+      {l:'Jogadores', v: ex.jogadores},
+      {l:'Material', v: ex.material},
+      {l:'Duracao', v: ex.duracao ? ex.duracao+' min'+(ex.series?' | '+ex.series:'') : ''},
+      {l:'Variantes / Progressoes', v: ex.variantes},
+      {l:'Notas do Treinador', v: ex.notas},
+    ];
+
+    blocks.forEach(function(b){
+      if(!b.v||b.v.trim()==='') return;
+      if(fy > H-30) return;
+      label(b.l, fy);
+      fy += 3.8;
+      var nLines = value(b.v, fy, colLW);
+      fy += Math.max(1,nLines)*lh + 1.5;
+      divider(fy);
+      fy += 2.5;
+    });
+
+    // --- LEGENDA FPP ---
+    var legendY = Math.max(fy+3, y+fieldH-60);
+    if(legendY < H-22){
+      divider(legendY); legendY+=3;
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(cBlue[0],cBlue[1],cBlue[2]);
+      doc.text('LEGENDA (FPP)', colL, legendY); legendY+=4;
+
+      // Jogadores — símbolos geométricos FPP
+      var playerSymbols=[
+        {shape:'circle',l:'Atacante (circulo vazio)'},
+        {shape:'circle-dot',l:'Atacante com bola'},
+        {shape:'triangle',l:'Defesa (triangulo vazio)'},
+        {shape:'gr',l:'Guarda-Redes'},
+        {shape:'cone',l:'Cone (triangulo solido)'},
+      ];
+      var half2=Math.ceil(playerSymbols.length/2);
+      playerSymbols.forEach(function(item,i){
+        var lx = i<half2 ? colL : colL+colLW/2;
+        var ly = i<half2 ? legendY+i*4.5 : legendY+(i-half2)*4.5;
+        doc.setDrawColor(20,20,20); doc.setFillColor(255,255,255); doc.setLineWidth(0.5);
+        if(item.shape==='circle'){
+          doc.circle(lx+2,ly-1.5,2,'S');
+        } else if(item.shape==='circle-dot'){
+          doc.circle(lx+2,ly-1.5,2,'S');
+          doc.setFillColor(20,20,20); doc.circle(lx+2,ly-1.5,0.8,'F');
+        } else if(item.shape==='triangle'){
+          doc.setFillColor(255,255,255);
+          doc.triangle(lx+2,ly-3.5, lx-1,ly+0.5, lx+5,ly+0.5,'S');
+        } else if(item.shape==='gr'){
+          doc.circle(lx+2,ly-1.5,2.5,'S');
+          doc.line(lx-0.5,ly-1.5,lx+4.5,ly-1.5);
+          doc.line(lx+2,ly-4,lx+2,ly+1);
+        } else if(item.shape==='cone'){
+          doc.setFillColor(20,20,20);
+          doc.triangle(lx+2,ly-3.5, lx-1,ly+0.5, lx+5,ly+0.5,'F');
+        }
+        doc.setFont('helvetica','normal'); doc.setFontSize(6.5);
+        doc.setTextColor(cDark[0],cDark[1],cDark[2]);
+        doc.text(item.l,lx+7,ly);
+      });
+      legendY += half2*4.5+3;
+
+      // Linhas FPP
+      var lineTypes=[
+        {l:'Deslocamento sem bola',dash:false,sw:0.6},
+        {l:'Deslocamento posterior',dash:[2,1.5],sw:0.6},
+        {l:'Conducao com bola (ondulado)',dash:false,sw:0.6,wavy:true},
+        {l:'Passe / Trajetoria bola',dash:[1.5,1.5],sw:0.4},
+        {l:'Remate',dash:false,sw:1.2},
+        {l:'Finta / Bloqueio',dash:false,sw:0.6,feint:true},
+      ];
+      var half3=Math.ceil(lineTypes.length/2);
+      lineTypes.forEach(function(item,i){
+        var lx2 = i<half3 ? colL : colL+colLW/2;
+        var ly2 = i<half3 ? legendY+i*4.2 : legendY+(i-half3)*4.2;
+        doc.setDrawColor(20,20,20);
+        doc.setLineWidth(item.sw);
+        if(item.dash) doc.setLineDashPattern(item.dash,0);
+        else doc.setLineDashPattern([],0);
+        if(item.wavy){
+          // draw mini wavy
+          doc.setLineDashPattern([],0);
+          doc.lines([[2,2],[2,-2],[2,2],[2,-2]],lx2,ly2-1,1,1,false);
+        } else if(item.feint){
+          doc.line(lx2,ly2-1,lx2+4,ly2-1);
+          doc.line(lx2+4,ly2-1,lx2+6,ly2-3.5);
+          doc.line(lx2+6,ly2-3.5,lx2+8,ly2-1);
+          doc.line(lx2+8,ly2-1,lx2+12,ly2-1);
+        } else {
+          doc.line(lx2,ly2-1,lx2+12,ly2-1);
+        }
+        doc.setLineDashPattern([],0);
+        doc.setFont('helvetica','normal'); doc.setFontSize(6.5);
+        doc.setTextColor(cDark[0],cDark[1],cDark[2]);
+        doc.text(item.l,lx2+14,ly2);
+      });
+    }
+
+    // --- RODAPE ---
+    doc.setFillColor(240,242,248);
+    doc.rect(0,H-7,W,7,'F');
+    doc.setDrawColor(cBorder[0],cBorder[1],cBorder[2]);
+    doc.setLineWidth(0.2);
+    doc.line(0,H-7,W,H-7);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7);
+    doc.setTextColor(cGray[0],cGray[1],cGray[2]);
+    var today = new Date().toLocaleDateString('pt-PT');
+    doc.text('Gerado em '+today, M, H-2.5);
+    if(clubConfig.name) doc.text(clubConfig.name, W/2, H-2.5, {align:'center'});
+    doc.text('Pagina 1', W-M, H-2.5, {align:'right'});
+
+    var fname = (ex.title||'exercicio').replace(/[^a-zA-Z0-9_-]/g,'_');
+    doc.save(fname+'.pdf');
+    hint('PDF exportado!');
+    setTimeout(function(){hint('');},3000);
+  };
+  img.onerror = function(){
+    URL.revokeObjectURL(svgUrl);
+    doc.save((ex.title||'exercicio').replace(/[^a-zA-Z0-9_-]/g,'_')+'.pdf');
+  };
+  img.src = svgUrl;
+}
+
+// --- PWA: Instalar ---
+function installPWA(){
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(function(r){
+    deferredPrompt=null;
+    document.getElementById('install-banner').style.display='none';
+  });
+}
+
+// --- PWA: Registar Service Worker (só fora do Claude/iframe) ---
+if('serviceWorker' in navigator && window.location.protocol !== 'blob:' && window.self === window.top){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js').then(function(reg){
+      console.log('SW registado:', reg.scope);
+    }).catch(function(){
+      // sw.js nao encontrado - normal em desenvolvimento local
+    });
+  });
+}
+
+// Banner de instalação
+var deferredPrompt;
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  deferredPrompt = e;
+  var banner = document.getElementById('install-banner');
+  if(banner) banner.style.display='flex';
+});
+
+// --- INIT ---
+buildField();
+updUndo();
+
+// Carregar exercícios do Supabase
+async function loadFromSupabase(){
+  hint('A carregar biblioteca...');
+  try {
+    var res = await sb.from('exercicios').select('*').order('criado_em', {ascending:false});
+    if(res.error) throw res.error;
+    exercises = (res.data||[]).map(function(ex){
+      return {
+        id: ex.id,
+        title: ex.titulo||'Sem título',
+        escalao: ex.escalao||'',
+        categoria: ex.categoria||'',
+        duracao: ex.duracao||'',
+        objetivo: ex.objetivo||'',
+        descricao: ex.descricao||'',
+        pontos: ex.componentes||'',
+        variantes: ex.progressao||'',
+        material: ex.material||'',
+        svg_data: ex.svg_data||'',
+        fieldEl: '', fieldAr: '',
+        criado_em: ex.criado_em,
+        atualizado_em: ex.atualizado_em
+      };
+    });
+    renderList();
+    hint(exercises.length ? '✅ '+exercises.length+' exercício(s) carregado(s)' : 'Biblioteca vazia — cria o primeiro exercício!');
+    setTimeout(function(){hint('');}, 3000);
+  } catch(err) {
+    var msg = err.message || err.details || err.hint || JSON.stringify(err);
+    hint('⚠️ Erro Supabase: '+msg);
+    console.error('Supabase error:', err);
+    renderList();
+  }
+}
+
+loadFromSupabase();
+
+</script>
+</body>
+</html>
