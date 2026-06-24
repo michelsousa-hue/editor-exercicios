@@ -1322,8 +1322,7 @@ async function doSave(title,isNew){
     var gels = svg ? svg.querySelector('#g-els') : null;
     var garr = svg ? svg.querySelector('#g-arr') : null;
     var svgLimpo = '<svg width="680" height="420" viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg">'
-      +'<rect x="0" y="0" width="680" height="420" fill="#2a2a2a"/>'
-      +'<image x="8" y="6" width="664" height="408" href="'+FIELD_IMG+'" preserveAspectRatio="xMidYMid meet"/>'
+      +'<image x="0" y="0" width="680" height="420" href="'+FIELD_IMG+'" preserveAspectRatio="xMidYMid slice"/>'
       +(gels?gels.outerHTML:'')
       +(garr?garr.outerHTML:'')
       +'</svg>';
@@ -2046,8 +2045,7 @@ async function exportPlanoPDF(){
         var svgStr='';
         if(ex.svg_els){
           svgStr='<svg width="680" height="420" viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg">'
-            +'<rect x="0" y="0" width="680" height="420" fill="#2a2a2a"/>'
-            +'<image x="8" y="6" width="664" height="408" href="'+FIELD_IMG+'" preserveAspectRatio="xMidYMid meet"/>'
+            +'<image x="0" y="0" width="680" height="420" href="'+FIELD_IMG+'" preserveAspectRatio="xMidYMid slice"/>'
             +ex.svg_els+'</svg>';
         }
         if(!svgStr){resolve(null);return;}
