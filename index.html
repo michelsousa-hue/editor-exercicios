@@ -1945,43 +1945,82 @@ function buildPlanoSlots(saved){
   var slots = document.getElementById('plano-slots');
   if(!slots) return;
   var letras = ['A','B','C','D'];
-  var exOptions = exercises.map(function(ex){
-    return '<option value="'+ex.id+'">'+ex.title+'</option>';
-  }).join('');
-  slots.innerHTML = letras.map(function(letra, i){
+
+  function getExOpts(){
+    var esc=document.getElementById('pslot-f-escalao')?.value||'';
+    var cat=document.getElementById('pslot-f-categoria')?.value||'';
+    return '<option value="">— Selecionar da biblioteca —</option>'
+      +exercises.filter(function(ex){
+        if(esc && ex.escalao!==esc) return false;
+        if(cat && ex.categoria!==cat) return false;
+        return true;
+      }).map(function(ex){
+        var lbl=[ex.title,ex.escalao,ex.subcategoria||ex.categoria].filter(Boolean).join(' · ');
+        return '<option value="'+ex.id+'">'+lbl+'</option>';
+      }).join('')
+      +'<option value="__manual__">✏️ Inserir manualmente</option>';
+  }
+
+  var filterHtml='<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">'
+    +'<select id="pslot-f-escalao" onchange="refreshPlanoSlotOptions()" style="flex:1;min-width:120px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">'
+    +'<option value="">Todos escalões</option>'
+    +'<option>Bambis</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option><option>Senior</option>'
+    +'</select>'
+    +'<select id="pslot-f-categoria" onchange="refreshPlanoSlotOptions()" style="flex:1;min-width:140px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">'
+    +'<option value="">Todas categorias</option>'
+    +'<option>Técnica Individual</option><option>Táctica Individual</option><option>Táctica Colectiva</option><option>Guarda-Redes</option><option>Condição Física</option><option>Lúdico</option>'
+    +'</select>'
+    +'</div>';
+
+  slots.innerHTML = filterHtml + letras.map(function(letra){
     var s = saved.find(function(x){return x.letra===letra;})||{};
-    var isManual = s.exercicio_id===null && s.titulo;
-    return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px">'+
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
-        '<span style="font-weight:700;color:var(--accent);font-size:15px;min-width:18px">'+letra+'</span>'+
-        '<select id="pslot-ex-'+letra+'" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit" onchange="onPlanoSlotChange(\''+letra+'\')">'+
-          '<option value="">— Selecionar da biblioteca —</option>'+
-          exOptions+
-          '<option value="__manual__">✏️ Inserir manualmente</option>'+
-        '</select>'+
-      '</div>'+
-      '<div id="pslot-manual-'+letra+'" style="display:none;margin-bottom:6px">'+
-        '<input id="pslot-titulo-'+letra+'" placeholder="Título do exercício" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:4px;box-sizing:border-box;font-family:inherit">'+
-        '<textarea id="pslot-obj-'+letra+'" placeholder="Objetivo" rows="1" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;resize:vertical;margin-bottom:4px;box-sizing:border-box;font-family:inherit"></textarea>'+
-        '<textarea id="pslot-desc-'+letra+'" placeholder="Descrição" rows="2" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>'+
-      '</div>'+
-      '<input id="pslot-tempo-'+letra+'" placeholder="Tempo (ex: 2 x 5 min)" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;box-sizing:border-box;font-family:inherit" value="'+(s.tempo||'')+'">'+
-    '</div>';
+    return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+        +'<span style="font-weight:700;color:var(--accent);font-size:15px;min-width:18px">'+letra+'</span>'
+        +'<select id="pslot-ex-'+letra+'" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit" onchange="onPlanoSlotChange(\''+letra+'\')">'
+          +getExOpts()
+        +'</select>'
+      +'</div>'
+      +'<div id="pslot-manual-'+letra+'" style="display:none;margin-bottom:6px">'
+        +'<input id="pslot-titulo-'+letra+'" placeholder="Título do exercício" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:4px;box-sizing:border-box;font-family:inherit">'
+        +'<textarea id="pslot-obj-'+letra+'" placeholder="Objetivo" rows="1" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;resize:vertical;margin-bottom:4px;box-sizing:border-box;font-family:inherit"></textarea>'
+        +'<textarea id="pslot-desc-'+letra+'" placeholder="Descrição" rows="2" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>'
+      +'</div>'
+      +'<input id="pslot-tempo-'+letra+'" placeholder="Tempo (ex: 2 x 5 min)" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;box-sizing:border-box;font-family:inherit" value="'+(s.tempo||'')+'">'
+    +'</div>';
   }).join('');
+
   // restore saved values
   saved.forEach(function(s){
     if(!s.letra) return;
-    var sel = document.getElementById('pslot-ex-'+s.letra);
-    if(!sel) return;
-    if(s.exercicio_id){
-      sel.value = s.exercicio_id;
-    } else if(s.titulo){
-      sel.value = '__manual__';
+    var sel=document.getElementById('pslot-ex-'+s.letra); if(!sel) return;
+    if(s.exercicio_id){ sel.value=s.exercicio_id; }
+    else if(s.titulo){
+      sel.value='__manual__';
       document.getElementById('pslot-manual-'+s.letra).style.display='block';
       var ti=document.getElementById('pslot-titulo-'+s.letra); if(ti) ti.value=s.titulo||'';
       var oj=document.getElementById('pslot-obj-'+s.letra); if(oj) oj.value=s.objetivo||'';
       var de=document.getElementById('pslot-desc-'+s.letra); if(de) de.value=s.descricao||'';
     }
+  });
+}
+
+function refreshPlanoSlotOptions(){
+  var esc=document.getElementById('pslot-f-escalao')?.value||'';
+  var cat=document.getElementById('pslot-f-categoria')?.value||'';
+  var opts='<option value="">— Selecionar da biblioteca —</option>'
+    +exercises.filter(function(ex){
+      if(esc && ex.escalao!==esc) return false;
+      if(cat && ex.categoria!==cat) return false;
+      return true;
+    }).map(function(ex){
+      var lbl=[ex.title,ex.escalao,ex.subcategoria||ex.categoria].filter(Boolean).join(' · ');
+      return '<option value="'+ex.id+'">'+lbl+'</option>';
+    }).join('')
+    +'<option value="__manual__">✏️ Inserir manualmente</option>';
+  ['A','B','C','D'].forEach(function(letra){
+    var sel=document.getElementById('pslot-ex-'+letra); if(!sel) return;
+    var cur=sel.value; sel.innerHTML=opts; if(cur) sel.value=cur;
   });
 }
 
