@@ -1949,10 +1949,12 @@ function buildPlanoSlots(saved){
   function getExOpts(){
     var esc=document.getElementById('pslot-f-escalao')?.value||'';
     var cat=document.getElementById('pslot-f-categoria')?.value||'';
+    var sub=document.getElementById('pslot-f-subcategoria')?.value||'';
     return '<option value="">— Selecionar da biblioteca —</option>'
       +exercises.filter(function(ex){
         if(esc && ex.escalao!==esc) return false;
         if(cat && ex.categoria!==cat) return false;
+        if(sub && ex.subcategoria!==sub) return false;
         return true;
       }).map(function(ex){
         var lbl=[ex.title,ex.escalao,ex.subcategoria||ex.categoria].filter(Boolean).join(' · ');
@@ -1966,9 +1968,15 @@ function buildPlanoSlots(saved){
     +'<option value="">Todos escalões</option>'
     +'<option>Bambis</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option><option>Senior</option>'
     +'</select>'
-    +'<select id="pslot-f-categoria" onchange="refreshPlanoSlotOptions()" style="flex:1;min-width:140px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">'
+    +'<select id="pslot-f-categoria" onchange="onPlanoFiltCatChange()" style="flex:1;min-width:140px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">'
     +'<option value="">Todas categorias</option>'
     +'<option>Técnica Individual</option><option>Táctica Individual</option><option>Táctica Colectiva</option><option>Guarda-Redes</option><option>Condição Física</option><option>Lúdico</option>'
+    +'</select>'
+    +'<select id="pslot-f-subcategoria" onchange="refreshPlanoSlotOptions()" style="display:none;flex:1;min-width:160px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">'
+    +'<option value="">Todas subcategorias</option>'
+    +'<option>Processo Ofensivo</option><option>Processo Defensivo</option>'
+    +'<option>Transição Defesa→Ataque</option><option>Transição Ataque→Defesa</option>'
+    +'<option>Bolas Paradas</option>'
     +'</select>'
     +'</div>';
 
@@ -2005,13 +2013,25 @@ function buildPlanoSlots(saved){
   });
 }
 
+function onPlanoFiltCatChange(){
+  var cat=document.getElementById('pslot-f-categoria')?.value||'';
+  var sub=document.getElementById('pslot-f-subcategoria');
+  if(sub){
+    sub.style.display=cat==='Táctica Colectiva'?'':'none';
+    sub.value='';
+  }
+  refreshPlanoSlotOptions();
+}
+
 function refreshPlanoSlotOptions(){
   var esc=document.getElementById('pslot-f-escalao')?.value||'';
   var cat=document.getElementById('pslot-f-categoria')?.value||'';
+  var sub=document.getElementById('pslot-f-subcategoria')?.value||'';
   var opts='<option value="">— Selecionar da biblioteca —</option>'
     +exercises.filter(function(ex){
       if(esc && ex.escalao!==esc) return false;
       if(cat && ex.categoria!==cat) return false;
+      if(sub && ex.subcategoria!==sub) return false;
       return true;
     }).map(function(ex){
       var lbl=[ex.title,ex.escalao,ex.subcategoria||ex.categoria].filter(Boolean).join(' · ');
