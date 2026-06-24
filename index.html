@@ -1312,46 +1312,97 @@ async function doSave(title,isNew){
   var svg = document.getElementById('field-svg');
   var svgData = svg ? svg.outerHTML : '';
   var now = new Date().toISOString();
-  var data = Object.assign(getFD(), {
+  var exId = isNew ? ('ex-'+Date.now()) : currentId;
+
+  // Converter SVG para JPEG e fazer upload para Storage
+  var imagemUrl = null;
+  try{
+    hint('A converter campo para imagem...');
+    // construir SVG limpo com FIELD_IMG local (evita canvas contaminado)
+    var gels = svg ? svg.querySelector('#g-els') : null;
+    var garr = svg ? svg.querySelector('#g-arr') : null;
+    var svgLimpo = '<svg width="680" height="420" viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg">'
+      +'<rect x="0" y="0" width="680" height="420" fill="#2a2a2a"/>'
+      +'<image x="8" y="6" width="664" height="408" href="'+FIELD_IMG+'" preserveAspectRatio="xMidYMid meet"/>'
+      +(gels?gels.outerHTML:'')
+      +(garr?garr.outerHTML:'')
+      +'</svg>';
+    var blob = new Blob([svgLimpo], {type:'image/svg+xml'});
+    var url = URL.createObjectURL(blob);
+    var imgEl = new Image();
+    var jpegBlob = await new Promise(function(resolve){
+      imgEl.onload = function(){
+        var cv = document.createElement('canvas');
+        cv.width=680; cv.height=420;
+        var ctx = cv.getContext('2d');
+        ctx.fillStyle='#2a2a2a'; ctx.fillRect(0,0,680,420);
+        ctx.drawImage(imgEl,0,0,680,420);
+        URL.revokeObjectURL(url);
+        cv.toBlob(function(b){ resolve(b); }, 'image/jpeg', 0.88);
+      };
+      imgEl.onerror = function(){ URL.revokeObjectURL(url); resolve(null); };
+      imgEl.src = url;
+    });
+    if(jpegBlob){
+      hint('A fazer upload da imagem...');
+      var filePath = exId+'.jpg';
+      var up = await sb.storage.from('exercicios').upload(filePath, jpegBlob, {
+        contentType:'image/jpeg', upsert:true
+      });
+      if(!up.error){
+        var pub = sb.storage.from('exercicios').getPublicUrl(filePath);
+        imagemUrl = pub.data.publicUrl;
+      } else {
+        console.warn('Upload Storage error:', up.error);
+      }
+    }
+  }catch(e){ console.warn('Imagem não guardada:', e); }
+
+  // Extrair svg_els (sem a imagem base64) para fallback
+  var gels2 = svg ? svg.querySelector('#g-els') : null;
+  var garr2 = svg ? svg.querySelector('#g-arr') : null;
+  var svgEls = (gels2?gels2.outerHTML:'')+(garr2?garr2.outerHTML:'');
+
+  var fd = getFD();
+  var criado_em = isNew ? now : (exercises.find(function(e){return e.id===exId;})||{}).criado_em || now;
+
+  hint('A guardar na base de dados...');
+  var res = await sb.from('exercicios').upsert({
+    id: exId,
     titulo: title,
-    id: isNew ? ('ex-'+Date.now()) : currentId,
+    escalao: fd.escalao||'',
+    categoria: fd.categoria||'',
+    duracao: parseInt(fd.duracao)||null,
+    objetivo: fd.objetivo||'',
+    descricao: fd.descricao||'',
+    componentes: fd.pontos||'',
+    erros: '',
+    progressao: fd.variantes||'',
+    material: fd.material||'',
     svg_data: svgData,
-    criado_em: isNew ? now : (exercises.find(function(e){return e.id===currentId;})||{}).criado_em || now,
+    svg_els: svgEls,
+    imagem_url: imagemUrl,
+    criado_em: criado_em,
     atualizado_em: now
   });
-  // manter compatibilidade com campo 'title' local
-  data.titulo = title;
-  try {
-    var {error} = await sb.from('exercicios').upsert({
-      id: data.id,
-      titulo: title,
-      escalao: data.escalao||'',
-      categoria: data.categoria||'',
-      duracao: parseInt(data.duracao)||null,
-      objetivo: data.objetivo||'',
-      descricao: data.descricao||'',
-      componentes: data.pontos||'',
-      erros: '',
-      progressao: data.variantes||'',
-      material: data.material||'',
-      svg_data: svgData,
-      criado_em: data.criado_em,
-      atualizado_em: now
-    });
-    if(error) throw error;
-    // atualizar lista local
-    data.id = data.id;
-    data.title = title;
-    if(isNew){ exercises.push(data); currentId=data.id; }
-    else { var i=exercises.findIndex(function(e){return e.id===currentId;}); if(i>=0)exercises[i]=data; }
-    renderList();
-    document.getElementById('bname').innerHTML='<span>Exercicio: </span>'+title;
-    hint('✅ Guardado no Supabase!');
-    setTimeout(function(){hint('');},3000);
-  } catch(err) {
-    hint('❌ Erro ao guardar: '+err.message);
-    console.error(err);
+
+  if(!res.data && res.error){
+    hint('❌ Erro ao guardar: '+(res.error.message||JSON.stringify(res.error)));
+    return;
   }
+
+  var localEx = Object.assign(fd, {
+    id: exId, title: title,
+    svg_data: svgData, svg_els: svgEls,
+    imagem_url: imagemUrl,
+    criado_em: criado_em, atualizado_em: now
+  });
+  if(isNew){ exercises.push(localEx); currentId=exId; }
+  else { var idx=exercises.findIndex(function(e){return e.id===exId;}); if(idx>=0)exercises[idx]=localEx; }
+  renderList();
+  document.getElementById('bname').innerHTML='<span>Exercicio: </span>'+title;
+  hint(imagemUrl ? '✅ Guardado com imagem!' : '✅ Guardado!');
+  setTimeout(function(){hint('');},3000);
 }
 function delExercise(){
   if(!currentId) return;
@@ -1882,7 +1933,8 @@ function getPlanoExercicios(){
       titulo:ex.title, objetivo:ex.objetivo||'',
       descricao:ex.descricao||'', tempo:tempo?tempo.value:'',
       svg_data:ex.svg_data||'',
-      svg_els:svgLight};
+      svg_els:svgLight,
+      imagem_url:ex.imagem_url||''};
   }).filter(Boolean);
 }
 
@@ -1971,31 +2023,49 @@ async function exportPlanoPDF(){
   // Converter SVG para PNG
   function svgToPng(ex){
     return new Promise(function(resolve){
+      // Se tiver URL da imagem no Storage — usar diretamente
+      if(ex.imagem_url){
+        var img=new Image();
+        img.crossOrigin='anonymous';
+        img.onload=function(){
+          var cv=document.createElement('canvas');
+          cv.width=680;cv.height=420;
+          var ctx=cv.getContext('2d');
+          ctx.drawImage(img,0,0,680,420);
+          try{resolve(cv.toDataURL('image/jpeg',0.88));}catch(e){resolve(ex.imagem_url);}
+        };
+        img.onerror=function(){
+          // Se falhar o canvas (CORS), usar o URL diretamente no addImage
+          resolve('__url__:'+ex.imagem_url);
+        };
+        img.src=ex.imagem_url+'?t='+Date.now();
+        return;
+      }
+      // Fallback: reconstruir com svg_els + FIELD_IMG
       try{
-        var svgStr = ex.svg_data||'';
-        // se nao tiver svg_data mas tiver svg_els, reconstroi com o campo
-        if(!svgStr && ex.svg_els){
+        var svgStr='';
+        if(ex.svg_els){
           svgStr='<svg width="680" height="420" viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg">'
             +'<rect x="0" y="0" width="680" height="420" fill="#2a2a2a"/>'
             +'<image x="8" y="6" width="664" height="408" href="'+FIELD_IMG+'" preserveAspectRatio="xMidYMid meet"/>'
             +ex.svg_els+'</svg>';
         }
-        if(!svgStr){ resolve(null); return; }
+        if(!svgStr){resolve(null);return;}
         var blob=new Blob([svgStr],{type:'image/svg+xml'});
         var url=URL.createObjectURL(blob);
-        var img=new Image();
-        img.onload=function(){
+        var img2=new Image();
+        img2.onload=function(){
           var cv=document.createElement('canvas');
-          cv.width=680; cv.height=420;
+          cv.width=680;cv.height=420;
           var ctx=cv.getContext('2d');
-          ctx.fillStyle='#2a2a2a'; ctx.fillRect(0,0,680,420);
-          ctx.drawImage(img,0,0,680,420);
+          ctx.fillStyle='#2a2a2a';ctx.fillRect(0,0,680,420);
+          ctx.drawImage(img2,0,0,680,420);
           URL.revokeObjectURL(url);
-          resolve(cv.toDataURL('image/png'));
+          try{resolve(cv.toDataURL('image/jpeg',0.88));}catch(e){resolve(null);}
         };
-        img.onerror=function(){ URL.revokeObjectURL(url); resolve(null); };
-        img.src=url;
-      }catch(e){ resolve(null); }
+        img2.onerror=function(){URL.revokeObjectURL(url);resolve(null);};
+        img2.src=url;
+      }catch(e){resolve(null);}
     });
   }
 
@@ -2065,10 +2135,18 @@ async function exportPlanoPDF(){
     doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(12);
     doc.text(ex.letra||'', M+4, ty+rowH/2+4, {align:'center'});
 
-    // campo SVG
+    // campo SVG/JPEG
     var cx = M+10;
     if(svgImages[ex.letra]){
-      try{ doc.addImage(svgImages[ex.letra],'PNG', cx, ty+3, imgW, imgH); }catch(e){}
+      try{
+        var imgSrc=svgImages[ex.letra];
+        var fmt = (typeof imgSrc==='string'&&imgSrc.startsWith('data:image/jpeg'))?'JPEG':'PNG';
+        if(typeof imgSrc==='string'&&imgSrc.startsWith('__url__:')){
+          doc.addImage(imgSrc.replace('__url__:',''),'JPEG',cx,ty+3,imgW,imgH);
+        } else {
+          doc.addImage(imgSrc,fmt,cx,ty+3,imgW,imgH);
+        }
+      }catch(e){}
     }
 
     // texto à direita do campo
@@ -2130,6 +2208,8 @@ async function loadFromSupabase(){
       variantes: ex.progressao||'',
       material: ex.material||'',
       svg_data: ex.svg_data||'',
+      svg_els: ex.svg_els||'',
+      imagem_url: ex.imagem_url||'',
       fieldEl: '', fieldAr: '',
       criado_em: ex.criado_em,
       atualizado_em: ex.atualizado_em
