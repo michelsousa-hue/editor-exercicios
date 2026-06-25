@@ -102,7 +102,7 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
 .color-row{display:flex;gap:4px;padding:3px 0;flex-wrap:wrap}
 .cdot{width:17px;height:17px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .1s}
 .cdot:hover,.cdot.sel{border-color:#333;transform:scale(1.15)}
-.canvas-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;background:#e8ecf4}
+.canvas-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;background:#e8ecf4;position:relative}
 .ftoolbar{display:flex;gap:5px;margin-bottom:8px;align-items:center;flex-wrap:wrap;width:100%;max-width:700px}
 .tbtn{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--text2);font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;transition:all .15s}
 .tbtn:hover,.tbtn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-l)}
@@ -413,6 +413,14 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
             <span style="margin-left:auto;font-size:11px;color:var(--text2);font-family:'Barlow Condensed',sans-serif" id="hint">Clica na galeria para adicionar elementos</span>
           </div>
           <svg id="field-svg" width="680" height="420" viewBox="0 0 680 420"></svg>
+          <!-- overlay para imagem carregada (modo imagem/câmara) -->
+          <div id="field-img-overlay" style="display:none;position:absolute;inset:0;background:#1a1a1a;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px">
+            <img id="field-img-overlay-img" style="max-width:100%;max-height:100%;object-fit:contain">
+            <div style="position:absolute;top:8px;right:8px;display:flex;gap:6px">
+              <button class="tbtn" onclick="openCrop('overlay')" title="Recortar">✂ Recortar</button>
+              <button class="tbtn danger" onclick="clearFieldImg()" title="Remover imagem">✕ Remover</button>
+            </div>
+          </div>
         </div>
       </div>
       <!-- PLANOS DE TREINO -->
@@ -1360,11 +1368,38 @@ function switchGrafismo(mode){
     var tab=document.getElementById('gtab-'+m);
     if(tab) tab.classList.toggle('active', m===mode);
   });
-  document.getElementById('grafismo-svg-info').style.display  = mode==='svg' ? 'block':'none';
+  document.getElementById('grafismo-svg-info').style.display   = mode==='svg' ? 'block':'none';
   document.getElementById('grafismo-img-section').style.display = mode==='img' ? 'block':'none';
   document.getElementById('grafismo-cam-section').style.display = mode==='cam' ? 'block':'none';
-  // se mudar para SVG, limpar imagem
-  if(mode==='svg') _exImgData=null;
+  // se mudar para SVG, limpar imagem e mostrar campo SVG
+  if(mode==='svg'){
+    _exImgData=null;
+    setFieldOverlay(null);
+  }
+}
+
+function setFieldOverlay(src){
+  var overlay=document.getElementById('field-img-overlay');
+  var svg=document.getElementById('field-svg');
+  var img=document.getElementById('field-img-overlay-img');
+  if(!overlay||!svg) return;
+  if(src){
+    overlay.style.display='flex';
+    svg.style.display='none';
+    if(img) img.src=src;
+    // ir para o separador Campo para ver a imagem
+    switchTab('field');
+  } else {
+    overlay.style.display='none';
+    svg.style.display='';
+  }
+}
+
+function clearFieldImg(){
+  _exImgData=null;
+  setFieldOverlay(null);
+  switchGrafismo('svg');
+  removeExercicioImg();
 }
 
 function onExercicioImg(input, type){
@@ -1372,9 +1407,12 @@ function onExercicioImg(input, type){
   var reader=new FileReader();
   reader.onload=function(e){
     _exImgData=e.target.result;
+    // mostrar no preview da ficha
     var prev=document.getElementById('ex-img-preview');
     var img=document.getElementById('ex-img-preview-img');
     if(prev&&img){prev.style.display='block';img.src=_exImgData;}
+    // mostrar no separador Campo
+    setFieldOverlay(_exImgData);
   };
   reader.readAsDataURL(file);
   input.value='';
@@ -1391,6 +1429,8 @@ function openExercicioCamera(){
       var prev=document.getElementById('ex-cam-preview');
       var img=document.getElementById('ex-cam-preview-img');
       if(prev&&img){prev.style.display='block';img.src=_exImgData;}
+      // mostrar no separador Campo
+      setFieldOverlay(_exImgData);
     };
     reader.readAsDataURL(file);
   };
@@ -1424,19 +1464,21 @@ function getGrafismoData(){
 }
 
 function restoreGrafismo(ex){
-  // restaurar modo de grafismo ao carregar exercício
-  if(ex.imagem_url||ex.imagem_data){
-    var data=ex.imagem_data||ex.imagem_url;
-    _exImgData=data;
+  if(ex.imagem_url&&ex.imagem_url!==''){
+    _exImgData=ex.imagem_url;
     _grafismoMode=ex.grafismo_modo||'img';
     switchGrafismo(_grafismoMode);
     var prevId=_grafismoMode==='cam'?'ex-cam-preview':'ex-img-preview';
     var imgId=_grafismoMode==='cam'?'ex-cam-preview-img':'ex-img-preview-img';
     var prev=document.getElementById(prevId);
     var img=document.getElementById(imgId);
-    if(prev&&img){prev.style.display='block';img.src=data;}
+    if(prev&&img){prev.style.display='block';img.src=ex.imagem_url;}
+    // mostrar no Campo
+    setFieldOverlay(ex.imagem_url);
   } else {
-    _grafismoMode='svg'; switchGrafismo('svg');
+    _grafismoMode='svg';
+    switchGrafismo('svg');
+    setFieldOverlay(null);
   }
 }
 
@@ -2510,8 +2552,16 @@ var _cropDrag = null; // {type:'move'|'tl'|'tr'|'bl'|'br', ox,oy, sx,sy,sw,sh}
 
 function openCrop(source){
   _cropSource = source;
-  var imgEl = document.getElementById(source==='img'?'ex-img-preview-img':'ex-cam-preview-img');
-  if(!imgEl||!imgEl.src) return;
+  var src = null;
+  if(source==='overlay'||source==='img'||source==='cam'){
+    src = _exImgData;
+  }
+  if(!src){
+    // fallback: tentar o preview visível
+    var imgEl = document.getElementById(source==='cam'?'ex-cam-preview-img':'ex-img-preview-img');
+    if(imgEl) src = imgEl.src;
+  }
+  if(!src) return;
   _cropImg = new Image();
   _cropImg.onload = function(){
     var modal = document.getElementById('modal-crop');
@@ -2530,7 +2580,7 @@ function openCrop(source){
     modal.classList.add('open');
     bindCropEvents(canvas);
   };
-  _cropImg.src = imgEl.src;
+  _cropImg.src = src;
 }
 
 function closeCrop(){
@@ -2551,7 +2601,6 @@ function updateCropUI(){
 }
 
 function confirmCrop(){
-  var canvas = document.getElementById('crop-canvas');
   var out = document.createElement('canvas');
   var sx = Math.round(_cropSel.x / _cropScale);
   var sy = Math.round(_cropSel.y / _cropScale);
@@ -2563,12 +2612,14 @@ function confirmCrop(){
   out.getContext('2d').drawImage(_cropImg, sx, sy, sw, sh, 0, 0, sw, sh);
   var cropped = out.toDataURL('image/jpeg', 0.92);
   _exImgData = cropped;
-  // atualizar preview
-  var prevId = _cropSource==='img' ? 'ex-img-preview' : 'ex-cam-preview';
-  var imgId  = _cropSource==='img' ? 'ex-img-preview-img' : 'ex-cam-preview-img';
+  // atualizar preview na ficha
+  var prevId = (_cropSource==='cam') ? 'ex-cam-preview' : 'ex-img-preview';
+  var imgId  = (_cropSource==='cam') ? 'ex-cam-preview-img' : 'ex-img-preview-img';
   var prev = document.getElementById(prevId);
   var img  = document.getElementById(imgId);
   if(prev&&img){ prev.style.display='block'; img.src=cropped; }
+  // atualizar overlay no Campo
+  setFieldOverlay(cropped);
   closeCrop();
 }
 
