@@ -2376,61 +2376,45 @@ async function exportPlanoPDF(){
   }
   var cor = hexToRgb(corHex);
 
-  // Converter SVG para PNG
+  // Converter exercício para imagem para o PDF
   function svgToPng(ex){
     return new Promise(function(resolve){
-      // Se tiver URL da imagem no Storage — usar diretamente
-      if(ex.imagem_url){
+      // ── tem imagem do Storage — usar URL direto ──
+      if(ex.imagem_url && ex.imagem_url!==''){
+        resolve(ex.imagem_url);
+        return;
+      }
+      // ── SVG desenhado ──
+      try{
+        if(!ex.svg_els){resolve(null);return;}
+        var svgStr='<svg width="680" height="420" viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg">'
+          +'<rect x="0" y="0" width="680" height="420" fill="#2a2a2a"/>'
+          +'<image x="8" y="6" width="664" height="408" href="'+FIELD_IMG+'" preserveAspectRatio="xMidYMid meet"/>'
+          +ex.svg_els+'</svg>';
+        var blob=new Blob([svgStr],{type:'image/svg+xml'});
+        var url=URL.createObjectURL(blob);
         var img=new Image();
-        img.crossOrigin='anonymous';
         img.onload=function(){
           var cv=document.createElement('canvas');
           cv.width=680;cv.height=420;
           var ctx=cv.getContext('2d');
-          ctx.drawImage(img,0,0,680,420);
-          try{resolve(cv.toDataURL('image/jpeg',0.88));}catch(e){resolve(ex.imagem_url);}
-        };
-        img.onerror=function(){
-          // Se falhar o canvas (CORS), usar o URL diretamente no addImage
-          resolve('__url__:'+ex.imagem_url);
-        };
-        img.src=ex.imagem_url+'?t='+Date.now();
-        return;
-      }
-      // Fallback: reconstruir com svg_els + FIELD_IMG
-      try{
-        var svgStr='';
-        if(ex.svg_els){
-          svgStr='<svg width="680" height="420" viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg">'
-            +'<rect x="0" y="0" width="680" height="420" fill="#2a2a2a"/>'
-            +'<image x="8" y="6" width="664" height="408" href="'+FIELD_IMG+'" preserveAspectRatio="xMidYMid meet"/>'
-            +ex.svg_els+'</svg>';
-        }
-        if(!svgStr){resolve(null);return;}
-        var blob=new Blob([svgStr],{type:'image/svg+xml'});
-        var url=URL.createObjectURL(blob);
-        var img2=new Image();
-        img2.onload=function(){
-          var cv=document.createElement('canvas');
-          cv.width=680;cv.height=420;
-          var ctx=cv.getContext('2d');
           ctx.fillStyle='#2a2a2a';ctx.fillRect(0,0,680,420);
-          ctx.drawImage(img2,0,0,680,420);
+          ctx.drawImage(img,0,0,680,420);
           URL.revokeObjectURL(url);
           try{resolve(cv.toDataURL('image/jpeg',0.88));}catch(e){resolve(null);}
         };
-        img2.onerror=function(){URL.revokeObjectURL(url);resolve(null);};
-        img2.src=url;
+        img.onerror=function(){URL.revokeObjectURL(url);resolve(null);};
+        img.src=url;
       }catch(e){resolve(null);}
     });
   }
 
   var exs = p.exercicios||[];
 
-  // Pre-converter SVGs
+  // Pre-converter imagens/SVGs para PNG
   var svgImages={};
   await Promise.all(exs.map(function(ex){
-    if(!ex.svg_data && !ex.svg_els) return Promise.resolve();
+    if(!ex.svg_data && !ex.svg_els && !ex.imagem_url) return Promise.resolve();
     return svgToPng(ex).then(function(png){ if(png) svgImages[ex.letra]=png; });
   }));
 
@@ -2496,13 +2480,11 @@ async function exportPlanoPDF(){
     if(svgImages[ex.letra]){
       try{
         var imgSrc=svgImages[ex.letra];
-        var fmt = (typeof imgSrc==='string'&&imgSrc.startsWith('data:image/jpeg'))?'JPEG':'PNG';
-        if(typeof imgSrc==='string'&&imgSrc.startsWith('__url__:')){
-          doc.addImage(imgSrc.replace('__url__:',''),'JPEG',cx,ty+3,imgW,imgH);
-        } else {
+        if(imgSrc){
+          var fmt=imgSrc.startsWith('data:image/png')?'PNG':'JPEG';
           doc.addImage(imgSrc,fmt,cx,ty+3,imgW,imgH);
         }
-      }catch(e){}
+      }catch(e){ console.warn('addImage error:',e); }
     }
 
     // texto à direita do campo
