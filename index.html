@@ -2460,9 +2460,22 @@ async function exportPlanoPDF(){
   doc.setDrawColor(cor[0],cor[1],cor[2]); doc.setLineWidth(0.5);
   doc.line(M,ty,W-M,ty); ty+=4;
 
-  // Exercícios — 1 por linha: campo à esq, texto à dir
-  var imgW=70, imgH=43, rowH=50, gap=4;
+  // Exercícios — calcular altura dinâmica
+  var imgW=70, imgH=43, gap=4;
   exs.forEach(function(ex){
+    // calcular altura necessária para o texto
+    var tx2 = M+10 + imgW + 4;
+    var tw = W-M-tx2-2;
+    doc.setFontSize(9);
+    var tit=doc.splitTextToSize(ex.titulo||'—', tw);
+    var titH=tit.length*4.5;
+    doc.setFontSize(7);
+    var objH=0, descH=0;
+    if(ex.objetivo){ var ols=doc.splitTextToSize(ex.objetivo,tw); objH=4+ols.length*3.5+2; }
+    if(ex.descricao){ var dls=doc.splitTextToSize(ex.descricao,tw); descH=4+dls.length*3.5+2; }
+    var tempoH=ex.tempo?6:0;
+    var rowH=Math.max(imgH+6, 6+titH+objH+descH+tempoH+4);
+
     if(ty+rowH > H-M){ doc.addPage(); ty=M; }
 
     // borda da linha
@@ -2481,41 +2494,38 @@ async function exportPlanoPDF(){
       try{
         var imgSrc=svgImages[ex.letra];
         if(imgSrc){
-          var fmt=imgSrc.startsWith('data:image/png')?'PNG':'JPEG';
+          var fmt=imgSrc.startsWith&&imgSrc.startsWith('data:image/png')?'PNG':'JPEG';
           doc.addImage(imgSrc,fmt,cx,ty+3,imgW,imgH);
         }
       }catch(e){ console.warn('addImage error:',e); }
     }
 
-    // texto à direita do campo
-    var tx2 = cx + imgW + 4;
-    var tw = W-M-tx2-2;
+    // texto à direita
     doc.setTextColor(30,30,30);
     doc.setFont('helvetica','bold'); doc.setFontSize(9);
-    var tit=doc.splitTextToSize(pdfStr(ex.titulo||'—'), tw);
-    doc.text(tit, tx2, ty+6);
-    var ly=ty+6+tit.length*4.5;
+    var tit2=doc.splitTextToSize(pdfStr(ex.titulo||'—'), tw);
+    doc.text(tit2, tx2, ty+6);
+    var ly=ty+6+tit2.length*4.5;
 
     if(ex.objetivo){
       doc.setFont('helvetica','bold'); doc.setFontSize(7);
-      doc.text('Objetivo:', tx2, ly);
+      doc.text('Objetivo:', tx2, ly); ly+=4;
       doc.setFont('helvetica','normal');
-      var ols=doc.splitTextToSize(pdfStr(ex.objetivo), tw);
-      doc.text(ols, tx2, ly+4); ly+=4+ols.length*3.5;
+      var ols2=doc.splitTextToSize(pdfStr(ex.objetivo), tw);
+      doc.text(ols2, tx2, ly); ly+=ols2.length*3.5+2;
     }
     if(ex.descricao){
       doc.setFont('helvetica','bold'); doc.setFontSize(7);
-      doc.text('Descricao:', tx2, ly);
-      ly+=4;
+      doc.text('Descricao:', tx2, ly); ly+=4;
       doc.setFont('helvetica','normal');
-      var dls=doc.splitTextToSize(pdfStr(ex.descricao), tw);
-      doc.text(dls.slice(0,4), tx2, ly); ly+=Math.min(dls.length,4)*3.5;
+      var dls2=doc.splitTextToSize(pdfStr(ex.descricao), tw);
+      doc.text(dls2, tx2, ly); ly+=dls2.length*3.5+2;
     }
     if(ex.tempo){
       doc.setFont('helvetica','bold'); doc.setFontSize(7);
-      doc.text('Tempo: ', tx2, ty+rowH-4);
+      doc.text('Tempo: ', tx2, ly);
       doc.setFont('helvetica','normal');
-      doc.text(pdfStr(ex.tempo), tx2+13, ty+rowH-4);
+      doc.text(pdfStr(ex.tempo), tx2+13, ly);
     }
     ty += rowH + gap;
   });
