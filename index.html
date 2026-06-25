@@ -74,6 +74,17 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
 .img-preview-wrap{position:relative;margin-top:8px;display:none}
 .img-preview-wrap img{width:100%;border-radius:var(--r);border:1px solid var(--border);max-height:200px;object-fit:contain;background:#f8f9fc}
 .img-preview-wrap .img-remove{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:13px;line-height:22px;text-align:center;padding:0}
+.img-preview-wrap .img-crop-btn{position:absolute;top:4px;right:30px;background:rgba(26,86,219,.85);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:12px;line-height:22px;text-align:center;padding:0}
+/* CROP MODAL */
+#modal-crop{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+#modal-crop.open{display:flex}
+#crop-canvas-wrap{position:relative;max-width:90vw;max-height:75vh;overflow:hidden;cursor:crosshair}
+#crop-canvas{display:block;max-width:90vw;max-height:75vh}
+#crop-selection{position:absolute;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.5);pointer-events:none}
+#crop-actions{display:flex;gap:10px}
+#crop-actions button{padding:8px 22px;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer}
+#btn-crop-confirm{background:var(--accent);color:#fff}
+#btn-crop-cancel{background:#555;color:#fff}
 .grafismo-tabs{display:flex;gap:0;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
 .grafismo-tab{flex:1;padding:6px;font-size:11px;font-weight:600;text-align:center;cursor:pointer;background:#f8f9fc;color:var(--text2);border:none;transition:.15s}
 .grafismo-tab.active{background:var(--accent);color:#fff}
@@ -246,6 +257,7 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
                 </div>
                 <div class="img-preview-wrap" id="ex-img-preview">
                   <img id="ex-img-preview-img" src="">
+                  <button class="img-crop-btn" onclick="openCrop('img')" title="Recortar">✂</button>
                   <button class="img-remove" onclick="removeExercicioImg()" title="Remover">✕</button>
                 </div>
               </div>
@@ -255,6 +267,7 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
                 </div>
                 <div class="img-preview-wrap" id="ex-cam-preview">
                   <img id="ex-cam-preview-img" src="">
+                  <button class="img-crop-btn" onclick="openCrop('cam')" title="Recortar">✂</button>
                   <button class="img-remove" onclick="removeExercicioImg()" title="Remover">✕</button>
                 </div>
               </div>
@@ -2488,6 +2501,162 @@ async function exportPlanoPDF(){
 // ═══════════════════════════════════════════════════════
 
 // Carregar exercícios do Supabase
+// ── CROP ──
+var _cropSource = null; // 'img' | 'cam'
+var _cropImg = new Image();
+var _cropScale = 1;
+var _cropSel = {x:0,y:0,w:0,h:0};
+var _cropDrag = null; // {type:'move'|'tl'|'tr'|'bl'|'br', ox,oy, sx,sy,sw,sh}
+
+function openCrop(source){
+  _cropSource = source;
+  var imgEl = document.getElementById(source==='img'?'ex-img-preview-img':'ex-cam-preview-img');
+  if(!imgEl||!imgEl.src) return;
+  _cropImg = new Image();
+  _cropImg.onload = function(){
+    var modal = document.getElementById('modal-crop');
+    var canvas = document.getElementById('crop-canvas');
+    var maxW = window.innerWidth*0.88;
+    var maxH = window.innerHeight*0.72;
+    _cropScale = Math.min(1, maxW/_cropImg.naturalWidth, maxH/_cropImg.naturalHeight);
+    canvas.width  = Math.round(_cropImg.naturalWidth  * _cropScale);
+    canvas.height = Math.round(_cropImg.naturalHeight * _cropScale);
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(_cropImg, 0, 0, canvas.width, canvas.height);
+    // seleção inicial = 80% do centro
+    var pw = Math.round(canvas.width*.8), ph = Math.round(canvas.height*.8);
+    _cropSel = {x:Math.round((canvas.width-pw)/2), y:Math.round((canvas.height-ph)/2), w:pw, h:ph};
+    updateCropUI();
+    modal.classList.add('open');
+    bindCropEvents(canvas);
+  };
+  _cropImg.src = imgEl.src;
+}
+
+function closeCrop(){
+  document.getElementById('modal-crop').classList.remove('open');
+  unbindCropEvents();
+}
+
+function updateCropUI(){
+  var sel = document.getElementById('crop-selection');
+  var wrap = document.getElementById('crop-canvas-wrap');
+  var wr = wrap.getBoundingClientRect();
+  var cr = document.getElementById('crop-canvas').getBoundingClientRect();
+  var offX = cr.left - wr.left, offY = cr.top - wr.top;
+  sel.style.left   = (offX + _cropSel.x) + 'px';
+  sel.style.top    = (offY + _cropSel.y) + 'px';
+  sel.style.width  = _cropSel.w + 'px';
+  sel.style.height = _cropSel.h + 'px';
+}
+
+function confirmCrop(){
+  var canvas = document.getElementById('crop-canvas');
+  var out = document.createElement('canvas');
+  var sx = Math.round(_cropSel.x / _cropScale);
+  var sy = Math.round(_cropSel.y / _cropScale);
+  var sw = Math.round(_cropSel.w / _cropScale);
+  var sh = Math.round(_cropSel.h / _cropScale);
+  sw = Math.min(sw, _cropImg.naturalWidth  - sx);
+  sh = Math.min(sh, _cropImg.naturalHeight - sy);
+  out.width = sw; out.height = sh;
+  out.getContext('2d').drawImage(_cropImg, sx, sy, sw, sh, 0, 0, sw, sh);
+  var cropped = out.toDataURL('image/jpeg', 0.92);
+  _exImgData = cropped;
+  // atualizar preview
+  var prevId = _cropSource==='img' ? 'ex-img-preview' : 'ex-cam-preview';
+  var imgId  = _cropSource==='img' ? 'ex-img-preview-img' : 'ex-cam-preview-img';
+  var prev = document.getElementById(prevId);
+  var img  = document.getElementById(imgId);
+  if(prev&&img){ prev.style.display='block'; img.src=cropped; }
+  closeCrop();
+}
+
+// ── drag/resize na seleção ──
+function canvasPt(e, canvas){
+  var r = canvas.getBoundingClientRect();
+  var cx = e.touches ? e.touches[0].clientX : e.clientX;
+  var cy = e.touches ? e.touches[0].clientY : e.clientY;
+  return {x: cx - r.left, y: cy - r.top};
+}
+
+function hitTest(pt){
+  var s=_cropSel, m=10;
+  if(Math.abs(pt.x-s.x)<m      && Math.abs(pt.y-s.y)<m)      return 'tl';
+  if(Math.abs(pt.x-(s.x+s.w))<m && Math.abs(pt.y-s.y)<m)     return 'tr';
+  if(Math.abs(pt.x-s.x)<m      && Math.abs(pt.y-(s.y+s.h))<m) return 'bl';
+  if(Math.abs(pt.x-(s.x+s.w))<m && Math.abs(pt.y-(s.y+s.h))<m) return 'br';
+  if(pt.x>s.x&&pt.x<s.x+s.w&&pt.y>s.y&&pt.y<s.y+s.h) return 'move';
+  return 'new';
+}
+
+function _cropDown(e){
+  e.preventDefault();
+  var canvas=document.getElementById('crop-canvas');
+  var pt=canvasPt(e,canvas);
+  var hit=hitTest(pt);
+  if(hit==='new'){
+    _cropSel={x:pt.x,y:pt.y,w:0,h:0};
+    _cropDrag={type:'br',ox:pt.x,oy:pt.y,sx:pt.x,sy:pt.y,sw:0,sh:0};
+  } else {
+    _cropDrag={type:hit,ox:pt.x,oy:pt.y,sx:_cropSel.x,sy:_cropSel.y,sw:_cropSel.w,sh:_cropSel.h};
+  }
+}
+function _cropMove(e){
+  e.preventDefault();
+  if(!_cropDrag) return;
+  var canvas=document.getElementById('crop-canvas');
+  var pt=canvasPt(e,canvas);
+  var dx=pt.x-_cropDrag.ox, dy=pt.y-_cropDrag.oy;
+  var cw=canvas.width, ch=canvas.height;
+  var s=_cropSel;
+  if(_cropDrag.type==='move'){
+    s.x=Math.max(0,Math.min(cw-s.w,_cropDrag.sx+dx));
+    s.y=Math.max(0,Math.min(ch-s.h,_cropDrag.sy+dy));
+  } else if(_cropDrag.type==='br'){
+    s.w=Math.max(20,Math.min(cw-s.x,_cropDrag.sw+dx));
+    s.h=Math.max(20,Math.min(ch-s.y,_cropDrag.sh+dy));
+  } else if(_cropDrag.type==='tl'){
+    var nx=Math.min(_cropDrag.sx+_cropDrag.sw-20,_cropDrag.sx+dx);
+    var ny=Math.min(_cropDrag.sy+_cropDrag.sh-20,_cropDrag.sy+dy);
+    s.w=_cropDrag.sx+_cropDrag.sw-Math.max(0,nx);
+    s.h=_cropDrag.sy+_cropDrag.sh-Math.max(0,ny);
+    s.x=Math.max(0,nx); s.y=Math.max(0,ny);
+  } else if(_cropDrag.type==='tr'){
+    var ny2=Math.min(_cropDrag.sy+_cropDrag.sh-20,_cropDrag.sy+dy);
+    s.w=Math.max(20,Math.min(cw-_cropDrag.sx,_cropDrag.sw+dx));
+    s.h=_cropDrag.sy+_cropDrag.sh-Math.max(0,ny2);
+    s.x=_cropDrag.sx; s.y=Math.max(0,ny2);
+  } else if(_cropDrag.type==='bl'){
+    var nx2=Math.min(_cropDrag.sx+_cropDrag.sw-20,_cropDrag.sx+dx);
+    s.w=_cropDrag.sx+_cropDrag.sw-Math.max(0,nx2);
+    s.h=Math.max(20,Math.min(ch-_cropDrag.sy,_cropDrag.sh+dy));
+    s.x=Math.max(0,nx2); s.y=_cropDrag.sy;
+  }
+  updateCropUI();
+}
+function _cropUp(e){ _cropDrag=null; }
+
+function bindCropEvents(canvas){
+  canvas.addEventListener('mousedown',_cropDown);
+  window.addEventListener('mousemove',_cropMove);
+  window.addEventListener('mouseup',_cropUp);
+  canvas.addEventListener('touchstart',_cropDown,{passive:false});
+  window.addEventListener('touchmove',_cropMove,{passive:false});
+  window.addEventListener('touchend',_cropUp);
+}
+function unbindCropEvents(){
+  var canvas=document.getElementById('crop-canvas');
+  canvas.removeEventListener('mousedown',_cropDown);
+  window.removeEventListener('mousemove',_cropMove);
+  window.removeEventListener('mouseup',_cropUp);
+  canvas.removeEventListener('touchstart',_cropDown);
+  window.removeEventListener('touchmove',_cropMove);
+  window.removeEventListener('touchend',_cropUp);
+  _cropDrag=null;
+}
+
+// ── FIM CROP ──
 async function loadFromSupabase(){
   hint('A carregar biblioteca...');
   var res = await sb.from('exercicios').select('*').order('criado_em', {ascending:false});
@@ -2526,5 +2695,17 @@ async function loadFromSupabase(){
 loadFromSupabase();
 
 </script>
+<!-- CROP MODAL -->
+<div id="modal-crop">
+  <div style="color:#fff;font-size:13px;opacity:.8">Arrasta para selecionar a área — redimensiona pelos cantos</div>
+  <div id="crop-canvas-wrap">
+    <canvas id="crop-canvas"></canvas>
+    <div id="crop-selection"></div>
+  </div>
+  <div id="crop-actions">
+    <button id="btn-crop-confirm" onclick="confirmCrop()">✂️ Recortar</button>
+    <button id="btn-crop-cancel" onclick="closeCrop()">Cancelar</button>
+  </div>
+</div>
 </body>
 </html>
