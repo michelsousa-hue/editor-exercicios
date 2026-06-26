@@ -1745,7 +1745,19 @@ document.querySelectorAll('.modal-overlay').forEach(function(m){
 });
 
 // --- CLUB CONFIG ---
-var clubConfig = JSON.parse(localStorage.getItem('hk_club')||'{"name":"","team":"","logo":""}'); // config local (nao vai para Supabase)
+var clubConfig = JSON.parse(localStorage.getItem('hk_club')||'{"name":"","team":"","logo":"","cor":"#8B1A1A"}'); // config local
+
+// Sincronizar cor e logo do clube do Supabase
+(async function(){
+  try{
+    var {data}=await sb.from('config').select('key,value').in('key',['clube_nome','clube_cor','clube_logo']);
+    if(data) data.forEach(function(r){
+      if(r.key==='clube_cor') clubConfig.cor=r.value||clubConfig.cor;
+      if(r.key==='clube_logo') clubConfig.logo=r.value||clubConfig.logo;
+      if(r.key==='clube_nome') clubConfig.name=r.value||clubConfig.name; // sempre do Supabase
+    });
+  }catch(e){}
+})();
 
 function showClubConfig(){
   document.getElementById('club-name').value = clubConfig.name||'';
@@ -1868,105 +1880,147 @@ function verExercicio(id){
   openModal('modal-ver-ex');
 }
 
-function exportPDF(){
+async function exportPDF(){
   if(!currentId){ alert('Seleciona um exercicio primeiro.'); return; }
   var ex = exercises.find(function(e){return e.id===currentId;});
   if(!ex){ alert('Exercicio nao encontrado.'); return; }
 
-  var jsPDF = window.jspdf.jsPDF;
-  var doc = new jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
-  var W=297, H=210, M=10;
-  var cBlue=[26,86,219], cDark=[26,26,46], cBorder=[208,213,232];
+  hint('A gerar PDF...');
 
-  function buildPDF(imgData){
-    // --- CABEÇALHO ---
-    doc.setFillColor(26,86,219);
-    doc.rect(0,0,W,18,'F');
-    var logoX=M;
-    if(clubConfig.logo){try{doc.addImage(clubConfig.logo,'PNG',M,1,16,16);logoX=M+18;}catch(e){}}
-    doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(255,255,255);
-    doc.text(pdfStr(clubConfig.name||'Editor de Exercicios'), logoX, 8);
-    doc.setFontSize(9);doc.setFont('helvetica','normal');
-    if(clubConfig.team) doc.text(pdfStr(clubConfig.team), logoX, 13);
-    doc.setFont('helvetica','bold');doc.setFontSize(11);
-    doc.text(pdfStr(ex.title||'Sem titulo'), W-M, 8, {align:'right'});
-    doc.setFontSize(8);doc.setFont('helvetica','normal');
-    var metaParts=[ex.escalao,ex.categoria,ex.duracao?ex.duracao+'min':''].filter(Boolean).map(pdfStr);
-    if(metaParts.length) doc.text(metaParts.join('  |  '), W-M, 13, {align:'right'});
-
-    var y=22;
-    var colLW=93, colL=M, colR=M+colLW+5, colRW=W-colR-M;
-
-    // --- CAMPO ---
-    if(imgData){
-      var fmt=imgData.startsWith('data:image/png')?'PNG':'JPEG';
-      var fieldH=colRW*(420/680);
-      doc.addImage(imgData,fmt,colR,y,colRW,fieldH);
-      doc.setDrawColor(cBorder[0],cBorder[1],cBorder[2]);doc.setLineWidth(0.3);
-      doc.rect(colR,y,colRW,fieldH);
-    }
-
-    // --- FICHA ---
-    var fy=y, lh=5.2;
-    function label(txt,yy){doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(cBlue[0],cBlue[1],cBlue[2]);doc.text(pdfStr(txt).toUpperCase(),colL,yy);}
-    function value(txt,yy,maxW){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(cDark[0],cDark[1],cDark[2]);if(!txt||txt.trim()==='')return 0;var lines=doc.splitTextToSize(pdfStr(txt),maxW||colLW);doc.text(lines,colL,yy);return lines.length;}
-
-    var fields=[
-      {l:'Escalao/Categoria', v:[ex.escalao,ex.categoria].filter(Boolean).join(' — ')},
-      {l:'Duracao', v:ex.duracao?ex.duracao+'min':''},
-      {l:'Series/Repeticoes', v:ex.series||''},
-      {l:'Jogadores', v:ex.jogadores||''},
-      {l:'Objetivo', v:ex.objetivo},
-      {l:'Elementos de Conteudo', v:ex.elementos},
-      {l:'Pontos Chave', v:ex.pontos},
-      {l:'Descricao', v:ex.descricao},
-      {l:'Material', v:ex.material},
-      {l:'Variantes', v:ex.variantes},
-      {l:'Notas', v:ex.notas}
-    ];
-    fields.forEach(function(f){
-      if(!f.v||!f.v.toString().trim())return;
-      if(fy>H-20)return;
-      label(f.l,fy);fy+=3.5;
-      var n=value(f.v,fy);
-      fy+=Math.max(1,n)*lh+2;
+  // ── Ler config do clube do Supabase (igual ao plano) ──
+  var corHex='#8B1A1A', clubeNome='', clubeLogo=null;
+  try{
+    var cfg=await sb.from('config').select('key,value');
+    (Array.isArray(cfg.data)?cfg.data:[]).forEach(function(r){
+      if(r.key==='clube_nome') clubeNome=r.value||clubeNome;
+      if(r.key==='clube_cor')  corHex=r.value||corHex;
+      if(r.key==='clube_logo') clubeLogo=r.value||null;
     });
+  }catch(e){}
 
-    doc.save(pdfStr(ex.title||'exercicio')+'.pdf');
+  function hexToRgb(hex){
+    var r=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return r?[parseInt(r[1],16),parseInt(r[2],16),parseInt(r[3],16)]:[139,26,26];
+  }
+  var cor=hexToRgb(corHex);
+
+  // ── Converter campo para imagem (igual ao plano) ──
+  function getFieldImg(ex){
+    return new Promise(function(resolve){
+      // imagem do Storage
+      if(ex.imagem_url&&ex.imagem_url!==''){resolve(ex.imagem_url);return;}
+      // SVG desenhado — extrair svg_els (com fallback de svg_data)
+      var els=ex.svg_els||'';
+      if(!els&&ex.svg_data){
+        try{
+          var doc2=new DOMParser().parseFromString(ex.svg_data,'image/svg+xml');
+          var ge=doc2.querySelector('#g-els'),ga=doc2.querySelector('#g-arr');
+          els=(ge?ge.outerHTML:'')+(ga?ga.outerHTML:'');
+        }catch(e){}
+      }
+      if(!els){resolve(null);return;}
+      try{
+        var svgStr='<svg width="680" height="420" viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg">'
+          +'<rect x="0" y="0" width="680" height="420" fill="#2a2a2a"/>'
+          +'<image x="8" y="6" width="664" height="408" href="'+FIELD_IMG+'" preserveAspectRatio="xMidYMid meet"/>'
+          +els+'</svg>';
+        var blob=new Blob([svgStr],{type:'image/svg+xml'});
+        var url=URL.createObjectURL(blob);
+        var img=new Image();
+        img.onload=function(){
+          var cv=document.createElement('canvas');cv.width=680;cv.height=420;
+          var ctx=cv.getContext('2d');
+          ctx.fillStyle='#2a2a2a';ctx.fillRect(0,0,680,420);
+          ctx.drawImage(img,0,0,680,420);
+          URL.revokeObjectURL(url);
+          try{resolve(cv.toDataURL('image/jpeg',0.88));}catch(e){resolve(null);}
+        };
+        img.onerror=function(){URL.revokeObjectURL(url);resolve(null);};
+        img.src=url;
+      }catch(e){resolve(null);}
+    });
   }
 
-  // Se tem imagem do Storage — usar diretamente
-  if(ex.imagem_url && ex.imagem_url!==''){
-    buildPDF(ex.imagem_url);
-    return;
+  var imgData=await getFieldImg(ex);
+
+  // ── Gerar PDF ──
+  var jsPDF=window.jspdf.jsPDF;
+  var doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  var W=297,H=210,M=10;
+  var cDark=[26,26,46],cBorder=[208,213,232];
+
+  // Cabeçalho
+  doc.setFillColor(cor[0],cor[1],cor[2]);
+  doc.rect(0,0,W,20,'F');
+  var logoX=M;
+  if(clubeLogo){
+    try{
+      var fmt2=clubeLogo.indexOf('data:image/png')===0?'PNG':'JPEG';
+      doc.addImage(clubeLogo,fmt2,M,1,18,18);logoX=M+21;
+    }catch(e){}
+  }
+  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(255,255,255);
+  doc.text(pdfStr(clubeNome||'Hoquei em Patins'),logoX,10);
+  doc.setFontSize(10);doc.setFont('helvetica','normal');
+  if(clubConfig.team) doc.text(pdfStr(clubConfig.team),logoX,16);
+  doc.setFont('helvetica','bold');doc.setFontSize(13);
+  doc.text(pdfStr(ex.title||'Sem titulo'),W-M,10,{align:'right'});
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  var metaParts=[ex.escalao,ex.categoria,ex.duracao?ex.duracao+'min':''].filter(Boolean).map(pdfStr);
+  if(metaParts.length) doc.text(metaParts.join('  |  '),W-M,16,{align:'right'});
+
+  var y=24;
+  var colLW=95,colL=M,colR=M+colLW+6,colRW=W-colR-M;
+
+  // Campo
+  if(imgData){
+    var isUrl=typeof imgData==='string'&&imgData.startsWith('http');
+    var fmt3=(!isUrl&&imgData.indexOf('data:image/png')===0)?'PNG':'JPEG';
+    var fieldH=colRW*(420/680);
+    doc.addImage(imgData,fmt3,colR,y,colRW,fieldH);
+    doc.setDrawColor(cBorder[0],cBorder[1],cBorder[2]);doc.setLineWidth(0.3);
+    doc.rect(colR,y,colRW,fieldH);
   }
 
-  // Se tem SVG desenhado — converter para PNG
-  if(ex.svg_els){
-    var svgStr='<svg width="680" height="420" viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg">'
-      +'<rect x="0" y="0" width="680" height="420" fill="#ffffff"/>'
-      +'<image x="8" y="6" width="664" height="408" href="'+FIELD_IMG+'" preserveAspectRatio="xMidYMid meet"/>'
-      +ex.svg_els+'</svg>';
-    var blob=new Blob([svgStr],{type:'image/svg+xml'});
-    var url=URL.createObjectURL(blob);
-    var img=new Image();
-    img.onload=function(){
-      var cv=document.createElement('canvas');cv.width=680*2;cv.height=420*2;
-      var ctx=cv.getContext('2d');
-      ctx.fillStyle='#ffffff';ctx.fillRect(0,0,cv.width,cv.height);
-      ctx.drawImage(img,0,0,cv.width,cv.height);
-      URL.revokeObjectURL(url);
-      buildPDF(cv.toDataURL('image/png'));
-    };
-    img.onerror=function(){URL.revokeObjectURL(url);buildPDF(null);};
-    img.src=url;
-    return;
+  // Ficha
+  var fy=y,lh=5.8;
+  function lbl(txt,yy){
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);
+    doc.setTextColor(cor[0],cor[1],cor[2]);
+    doc.text(pdfStr(txt).toUpperCase(),colL,yy);
   }
+  function val(txt,yy,maxW){
+    doc.setFont('helvetica','normal');doc.setFontSize(9.5);
+    doc.setTextColor(cDark[0],cDark[1],cDark[2]);
+    if(!txt||txt.trim()==='')return 0;
+    var lines=doc.splitTextToSize(pdfStr(txt),maxW||colLW);
+    doc.text(lines,colL,yy);return lines.length;
+  }
+  var fields=[
+    {l:'Escalao/Categoria',v:[ex.escalao,ex.categoria].filter(Boolean).join(' — ')},
+    {l:'Duracao',v:ex.duracao?ex.duracao+'min':''},
+    {l:'Series/Repeticoes',v:ex.series||''},
+    {l:'Jogadores',v:ex.jogadores||''},
+    {l:'Objetivo',v:ex.objetivo},
+    {l:'Elementos de Conteudo',v:ex.elementos},
+    {l:'Pontos Chave',v:ex.pontos},
+    {l:'Descricao',v:ex.descricao},
+    {l:'Material',v:ex.material},
+    {l:'Variantes',v:ex.variantes},
+    {l:'Notas',v:ex.notas}
+  ];
+  fields.forEach(function(f){
+    if(!f.v||!f.v.toString().trim())return;
+    if(fy>H-16)return;
+    lbl(f.l,fy);fy+=4;
+    var n=val(f.v,fy);
+    fy+=Math.max(1,n)*lh+3;
+  });
 
-  // Sem grafismo
-  buildPDF(null);
+  doc.save(pdfStr(ex.title||'exercicio')+'.pdf');
+  hint('✅ PDF exportado!');
+  setTimeout(function(){hint('');},3000);
 }
-
 
 // --- PWA: Instalar ---
 function installPWA(){
