@@ -2653,14 +2653,11 @@ loadFromSupabase();
   </div>
 </div>
 <!-- MODAL VER EXERCÍCIO -->
-<div id="modal-ver-ex" class="modal-bg" onclick="if(event.target===this)closeModal('modal-ver-ex')">
-  <div class="modal" style="max-width:800px;width:95vw">
+<div id="modal-ver-ex" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-ver-ex')">
+  <div class="modal" style="max-width:800px;width:95vw;max-height:90vh;overflow-y:auto">
     <div class="modal-header">
       <span class="modal-title" id="ver-ex-title">Exercício</span>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn btn-primary btn-sm" onclick="exportPDF()">📄 PDF</button>
-        <button class="modal-close" onclick="closeModal('modal-ver-ex')">✕</button>
-      </div>
+      <button class="modal-close" onclick="closeModal('modal-ver-ex')">✕</button>
     </div>
     <div id="ver-ex-body" style="display:flex;gap:16px;flex-wrap:wrap"></div>
   </div>
