@@ -81,15 +81,14 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
 .color-row{display:flex;gap:4px;padding:3px 0;flex-wrap:wrap}
 .cdot{width:17px;height:17px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .1s}
 .cdot:hover,.cdot.sel{border-color:#333;transform:scale(1.15)}
-.canvas-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;background:#e8ecf4;overflow:auto}
-.gallery{overflow-y:auto}
-.field-panel.active{overflow:hidden}
+.canvas-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:14px;background:#e8ecf4;overflow-y:auto}
+.ftoolbar{position:sticky;top:0;z-index:10;background:#e8ecf4;padding-bottom:6px}
 .ftoolbar{display:flex;gap:5px;margin-bottom:8px;align-items:center;flex-wrap:wrap;width:100%;max-width:700px}
 .tbtn{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--text2);font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;transition:all .15s}
 .tbtn:hover,.tbtn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-l)}
 .tbtn.danger{color:var(--red);border-color:#fca5a5}.tbtn.danger:hover{background:#fee2e2}
 .tsep{width:1px;height:18px;background:var(--border);margin:0 3px}
-#field-svg{border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15);cursor:default}
+#field-svg{border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15);cursor:default;max-width:100%;height:auto}
 #field-svg.draw{cursor:crosshair}
 /* BOTTOM */
 .bottom-bar{background:#fff;border-top:1px solid var(--border);padding:9px 18px;display:flex;align-items:center;gap:10px}
@@ -424,7 +423,9 @@ async function loadExercisesFromDb(){
     if(error) throw error;
     exercises=(data||[]).map(dbToEditor);
   }catch(e){
-    console.error('Erro ao carregar exercícios:',e);
+    console.error('Erro ao carregar exercícios:',JSON.stringify(e));
+    hint('❌ Erro: '+(e.message||e.error_description||JSON.stringify(e)));
+    setTimeout(function(){hint('');},5000);
     // fallback localStorage
     exercises=JSON.parse(localStorage.getItem('hk_ex')||'[]');
   }
