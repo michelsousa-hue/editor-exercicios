@@ -303,6 +303,12 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
             <button class="tbtn" id="btn-undo" onclick="undo()" title="Ctrl+Z">Desfazer</button>
             <button class="tbtn" onclick="flipSel()" title="Espelhar">&#8596; Espelhar</button>
             <button class="tbtn danger" onclick="delSel()" title="Del">Apagar</button>
+            <div class="tsep"></div>
+            <button class="tbtn" onclick="document.getElementById('upload-img').click()" title="Carregar imagem do computador">&#128247; Imagem</button>
+            <button class="tbtn" onclick="document.getElementById('camera-img').click()" title="Tirar fotografia">&#128247; Câmara</button>
+            <button class="tbtn danger" onclick="clearBgImage()" title="Remover imagem de fundo">&#10005; Fundo</button>
+            <input type="file" id="upload-img" accept="image/*" style="display:none" onchange="loadBgImage(this)">
+            <input type="file" id="camera-img" accept="image/*" capture="environment" style="display:none" onchange="loadBgImage(this)">
             <span style="margin-left:auto;font-size:11px;color:var(--text2);font-family:'Barlow Condensed',sans-serif" id="hint">Clica na galeria para adicionar elementos</span>
           </div>
           <svg id="field-svg" width="680" height="420" viewBox="0 0 680 420"></svg>
@@ -394,6 +400,7 @@ function editorToDb(data){
     notas: data.notas||'',
     svg_els: data.fieldEl||'',
     svg_data: data.fieldAr||'',
+    imagem_url: data.bgImage||'',
     atualizado_em: new Date().toISOString()
   };
 }
@@ -413,7 +420,8 @@ function dbToEditor(row){
     variantes: row.progressao||'',
     notas: row.notas||'',
     fieldEl: row.svg_els||'',
-    fieldAr: row.svg_data||''
+    fieldAr: row.svg_data||'',
+    bgImage: row.imagem_url||''
   };
 }
 
@@ -1125,6 +1133,34 @@ function delSel(){
   saveUndo(); remHandles(selEl); selEl.remove(); selEl=null;
   hint('Apagado - Ctrl+Z para desfazer');
 }
+function loadBgImage(input){
+  var file=input.files&&input.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var svg=document.getElementById('field-svg');
+    var existing=document.getElementById('bg-image');
+    if(existing) existing.remove();
+    var img=document.createElementNS(NS,'image');
+    img.setAttribute('id','bg-image');
+    img.setAttribute('x','0');
+    img.setAttribute('y','0');
+    img.setAttribute('width','680');
+    img.setAttribute('height','420');
+    img.setAttribute('preserveAspectRatio','xMidYMid meet');
+    img.setAttribute('href',e.target.result);
+    img.style.opacity='0.85';
+    svg.insertBefore(img,svg.firstChild);
+    hint('✅ Imagem de fundo carregada!');
+    setTimeout(function(){hint('');},2000);
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+function clearBgImage(){
+  var existing=document.getElementById('bg-image');
+  if(existing){existing.remove();hint('Fundo removido.');setTimeout(function(){hint('');},1500);}
+}
 function clearAll(){
   if(!confirm('Limpar todos os elementos?')) return;
   saveUndo();
@@ -1184,7 +1220,12 @@ function switchTab(tab){
 
 // --- CRUD ---
 function getFD(){
+  // capturar imagem de fundo se existir
+  var bgImg=document.getElementById('bg-image');
+  var bgImageData=bgImg?bgImg.getAttribute('href'):'';
+
   return {
+    bgImage:bgImageData||'',
     title:document.getElementById('f-title').value||'Sem titulo',
     escalao:document.getElementById('f-escalao').value,
     categoria:document.getElementById('f-categoria').value,
@@ -1208,6 +1249,20 @@ function setFD(ex){
   });
   buildField();
   setTimeout(function(){
+    // restaurar imagem de fundo
+    var existing=document.getElementById('bg-image');
+    if(existing) existing.remove();
+    if(ex.bgImage){
+      var svg=document.getElementById('field-svg');
+      var img=document.createElementNS(NS,'image');
+      img.setAttribute('id','bg-image');
+      img.setAttribute('x','0');img.setAttribute('y','0');
+      img.setAttribute('width','680');img.setAttribute('height','420');
+      img.setAttribute('preserveAspectRatio','xMidYMid meet');
+      img.setAttribute('href',ex.bgImage);
+      img.style.opacity='0.85';
+      svg.insertBefore(img,svg.firstChild);
+    }
     if(ex.fieldEl) document.getElementById('g-els').innerHTML=ex.fieldEl;
     if(ex.fieldAr) document.getElementById('g-arr').innerHTML=ex.fieldAr;
     document.querySelectorAll('#g-els > g').forEach(function(g){
