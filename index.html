@@ -1202,9 +1202,16 @@ function renderList(){
   var list=document.getElementById('ex-list');
   if(!exercises.length){list.innerHTML='<div class="empty-lib">Nenhum exercicio guardado.<br>Clica em <b>+ Novo</b> para comecar.</div>';return;}
   list.innerHTML=exercises.map(function(ex){
-    return '<div class="ex-item'+(ex.id===currentId?' active':'')+'" onclick="loadEx(\''+ex.id+'\')">'+
-      '<div class="ex-item-title">'+ex.title+'</div>'+
-      '<div class="ex-item-meta">'+(([ex.escalao,ex.categoria,ex.duracao?ex.duracao+'min':''].filter(Boolean).join(' · '))||'—')+'</div></div>';
+    var meta=([ex.escalao,ex.categoria,ex.duracao?ex.duracao+'min':''].filter(Boolean).join(' · '))||'—';
+    return '<div class="ex-item'+(ex.id===currentId?' active':'')+'">'+
+      '<div class="ex-item-title" title="'+ex.title+'" onclick="loadEx(\''+ex.id+'\')">'+ex.title+'</div>'+
+      '<div class="ex-item-meta" onclick="loadEx(\''+ex.id+'\')">'+meta+'</div>'+
+      '<div class="ex-item-actions">'+
+        '<button onclick="loadEx(\''+ex.id+'\')" title="Editar exercicio">✏️ Editar</button>'+
+        '<button onclick="loadAndPreview(\''+ex.id+'\')" title="Visualizar no campo">👁 Ver</button>'+
+        '<button class="del" onclick="confirmDelId(\''+ex.id+'\')" title="Apagar exercicio">🗑</button>'+
+      '</div>'+
+    '</div>';
   }).join('');
 }
 function loadEx(id){
