@@ -19,7 +19,7 @@
   --bg:#f5f6fa;--bg2:#fff;--bg3:#f0f2f8;
   --green:#16a34a;--red:#dc2626;--r:8px;
 }
-body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
 /* HEADER */
 header{background:#fff;border-bottom:2px solid var(--accent);padding:10px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:800;letter-spacing:1px;color:var(--accent);text-transform:uppercase}
@@ -31,16 +31,16 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
 .btn-success{background:var(--green);color:#fff}.btn-success:hover{background:#15803d}
 .btn-sm{padding:4px 10px;font-size:12px}
 /* LAYOUT */
-.app{display:flex;flex:1;overflow:hidden;height:calc(100vh - 52px)}
+.app{display:flex;flex:1;overflow:hidden;min-height:0}
 /* SIDEBAR */
-.sidebar{width:230px;min-width:230px;background:#fff;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar{width:230px;min-width:230px;background:#fff;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;height:100%;min-height:0}
 .sidebar-header{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg3)}
 .sidebar-header h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);flex:1}
-.ex-list{flex:1;overflow-y:auto;padding:6px}
+.ex-list{flex:1;overflow-y:auto;padding:6px;min-height:0}
 .ex-item{padding:9px 11px;border-radius:var(--r);cursor:pointer;border:1px solid transparent;margin-bottom:3px;transition:all .15s}
 .ex-item:hover{background:var(--bg3);border-color:var(--border)}
 .ex-item.active{background:var(--accent-l);border-color:var(--accent)}
-.ex-item-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ex-item-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .ex-item-meta{font-size:11px;color:var(--text2)}
 .empty-lib{text-align:center;padding:30px 16px;color:var(--text2);font-size:13px;line-height:1.6}
 /* EDITOR */
@@ -50,12 +50,12 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .editor-body{flex:1;overflow:hidden;position:relative;min-height:0}
 /* Todos os painéis ocupam o mesmo espaço, só um visível de cada vez */
-.fields-panel,.field-panel,#pane-planos{
+.fields-panel,.field-panel,#pane-planos{position:absolute;inset:0;
   position:absolute;top:0;left:0;right:0;bottom:0;display:none;
 }
-.fields-panel{overflow-y:auto;padding:20px;background:var(--bg)}
+.fields-panel{overflow-y:auto;padding:20px;background:var(--bg);flex:1;min-height:0}
 .fields-panel.active{display:block}
-.field-panel{flex-direction:row;overflow:hidden}
+.field-panel{flex-direction:row;overflow:hidden;flex:1;min-height:0}
 .field-panel.active{display:flex}
 #pane-planos{overflow:hidden}
 #pane-planos.active{display:flex;flex-direction:row}
@@ -91,19 +91,21 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
 .grafismo-tab:not(:last-child){border-right:1px solid var(--border)}
 .sec-title{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border)}
 /* CAMPO */
-.gallery{width:126px;min-width:126px;background:#fff;border-right:1px solid var(--border);overflow-y:auto;padding:6px}
-.glabel{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);padding:7px 4px 3px}
-.ggrid{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:4px}
-.gitem{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 3px;cursor:pointer;text-align:center;transition:all .15s;user-select:none}
+.gallery{width:126px;min-width:126px;background:#fff;border-right:1px solid var(--border);overflow-y:hidden;padding:6px;flex-shrink:0;display:flex;flex-direction:column}
+.glabel{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);padding:4px 4px 2px}
+.ggrid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:3px}
+.gitem{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:3px 2px;cursor:pointer;text-align:center;transition:all .15s;user-select:none}
 .gitem:hover,.gitem.active{border-color:var(--accent);background:var(--accent-l)}
 .gitem:active{transform:scale(.95)}
-.gitem svg{display:block;margin:0 auto 2px}
-.gitem span{font-size:9px;color:var(--text2);display:block;line-height:1.2}
+.gitem svg{display:block;margin:0 auto 1px;width:22px;height:22px}
+.gitem span{font-size:8px;color:var(--text2);display:block;line-height:1.2}
+.color-row{display:flex;gap:3px;padding:2px 4px 4px}
+.cdot{width:14px;height:14px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .1s}
 .color-row{display:flex;gap:4px;padding:3px 0;flex-wrap:wrap}
 .cdot{width:17px;height:17px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .1s}
 .cdot:hover,.cdot.sel{border-color:#333;transform:scale(1.15)}
-.canvas-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;background:#e8ecf4;position:relative}
-.ftoolbar{display:flex;gap:5px;margin-bottom:8px;align-items:center;flex-wrap:wrap;width:100%;max-width:700px}
+.canvas-area{flex:1;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;padding:0;background:#e8ecf4;position:relative;overflow:hidden}
+.ftoolbar{display:flex;gap:5px;align-items:center;flex-wrap:wrap;width:100%;background:#fff;border-bottom:1px solid var(--border);padding:6px 10px;flex-shrink:0;box-sizing:border-box}
 .tbtn{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--text2);font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;transition:all .15s}
 .tbtn:hover,.tbtn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-l)}
 .tbtn.danger{color:var(--red);border-color:#fca5a5}.tbtn.danger:hover{background:#fee2e2}
@@ -111,7 +113,7 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
 #field-svg{border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15);cursor:default}
 #field-svg.draw{cursor:crosshair}
 /* BOTTOM */
-.bottom-bar{background:#fff;border-top:1px solid var(--border);padding:9px 18px;display:flex;align-items:center;gap:10px}
+.bottom-bar{background:#fff;border-top:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:5}
 .bname{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;color:var(--text)}
 .bname span{color:var(--text2);font-weight:400;font-size:12px}
 /* MODAL */
@@ -412,13 +414,15 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
             <button class="tbtn danger" onclick="delSel()" title="Del">Apagar</button>
             <span style="margin-left:auto;font-size:11px;color:var(--text2);font-family:'Barlow Condensed',sans-serif" id="hint">Clica na galeria para adicionar elementos</span>
           </div>
-          <svg id="field-svg" width="680" height="420" viewBox="0 0 680 420"></svg>
-          <!-- overlay para imagem carregada (modo imagem/câmara) -->
-          <div id="field-img-overlay" style="display:none;position:absolute;inset:0;background:#1a1a1a;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px">
-            <img id="field-img-overlay-img" style="max-width:100%;max-height:100%;object-fit:contain">
-            <div style="position:absolute;top:8px;right:8px;display:flex;gap:6px">
-              <button class="tbtn" onclick="openCrop('overlay')" title="Recortar">✂ Recortar</button>
-              <button class="tbtn danger" onclick="clearFieldImg()" title="Remover imagem">✕ Remover</button>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px;overflow:hidden;position:relative;background:#e8ecf4">
+            <svg id="field-svg" width="680" height="420" viewBox="0 0 680 420" style="max-width:100%;max-height:100%;display:block"></svg>
+            <!-- overlay para imagem carregada (modo imagem/câmara) -->
+            <div id="field-img-overlay" style="display:none;position:absolute;inset:0;background:#1a1a1a;align-items:center;justify-content:center;flex-direction:column;gap:10px">
+              <img id="field-img-overlay-img" style="max-width:100%;max-height:100%;object-fit:contain">
+              <div style="position:absolute;top:8px;right:8px;display:flex;gap:6px">
+                <button class="tbtn" onclick="openCrop('overlay')" title="Recortar">✂ Recortar</button>
+                <button class="tbtn danger" onclick="clearFieldImg()" title="Remover imagem">✕ Remover</button>
+              </div>
             </div>
           </div>
         </div>
@@ -483,7 +487,13 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
       </div>
       </div><!-- fim editor-body -->
     <div class="bottom-bar">
-      <div class="bname" id="bname"><span>Exercicio: </span>Novo exercicio</div>
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0;max-width:220px">
+        <div class="bname" id="bname" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span>Exercicio: </span>Novo exercicio</div>
+        <div id="btns-ver-apagar" style="display:flex;gap:5px">
+          <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="verExercicioAtual()" title="Ver exercício">👁 Ver</button>
+          <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="delExercise()" title="Apagar exercício">🗑 Apagar</button>
+        </div>
+      </div>
       <div style="flex:1"></div>
       <button class="btn btn-ghost btn-sm btn-ex-only" onclick="showClubConfig()" title="Configurar cabeçalho do clube">&#9881; Clube</button>
       <button class="btn btn-ghost btn-sm btn-ex-only" onclick="exportJSON()" title="Exportar todos os exercícios para JSON">&#8595; JSON</button>
@@ -492,7 +502,6 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
       <button class="btn btn-ghost btn-sm" id="btn-pdf" onclick="exportAtivo()" title="Exportar para PDF">&#8595; PDF</button>
       <div class="tsep btn-ex-only"></div>
       <button class="btn btn-ghost btn-ex-only" onclick="newExercise()">Novo</button>
-      <button class="btn btn-ghost btn-sm btn-ex-only" onclick="delExercise()">Apagar</button>
       <button class="btn btn-success btn-ex-only" onclick="saveExercise()">Guardar</button>
       <!-- Botões específicos dos planos -->
       <button class="btn btn-ghost btn-plano-only" style="display:none" onclick="newPlano()">+ Novo Plano</button>
@@ -1348,7 +1357,12 @@ function switchTab(tab){
   document.getElementById('btn-pdf').title = isPlanos ? 'Exportar plano para PDF' : 'Exportar exercício para PDF';
   document.getElementById('bname').style.display = isPlanos ? 'none' : '';
   document.querySelector('.tsep').style.display = isPlanos ? 'none' : '';
-  document.querySelectorAll('.btn-ex-only').forEach(function(b){ b.style.display = isPlanos ? 'none' : ''; });
+  document.querySelectorAll('.btn-ex-only').forEach(function(b){
+    if(isPlanos){ b.style.display='none'; }
+    else { b.style.display = b.tagName==='DIV' ? 'flex' : ''; }
+  });
+  var bva=document.getElementById('btns-ver-apagar');
+  if(bva) bva.style.display=isPlanos?'none':'flex';
   document.querySelectorAll('.btn-plano-only').forEach(function(b){ b.style.display = isPlanos ? '' : 'none'; });
 }
 
@@ -1725,12 +1739,14 @@ function renderList(){
   }
   list.innerHTML=filtered.map(function(ex){
     var meta=[ex.escalao,ex.categoria,ex.subcategoria,ex.duracao?ex.duracao+'min':''].filter(Boolean).join(' · ');
-    return '<div class="ex-item'+(ex.id===currentId?' active':'')+'" onclick="loadEx(\''+ex.id+'\')">'+
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">'+
-      '<div><div class="ex-item-title">'+ex.title+'</div>'+
-      '<div class="ex-item-meta">'+(meta||'—')+'</div></div>'+
-      '<button class="btn btn-sm" style="flex-shrink:0;padding:2px 7px;font-size:10px" onclick="event.stopPropagation();verExercicio(\''+ex.id+'\')">👁</button>'+
-      '</div></div>';
+    return '<div class="ex-item'+(ex.id===currentId?' active':'')+'" onclick="loadEx(\''+ex.id+'\')">'
+      +'<div class="ex-item-title">'+ex.title+'</div>'
+      +'<div class="ex-item-meta">'+(meta||'—')+'</div>'
+      +'<div style="display:flex;gap:4px;margin-top:5px" onclick="event.stopPropagation()">'
+        +'<button class="btn btn-ghost btn-sm" style="flex:1;font-size:10px;padding:2px 4px" onclick="verExercicio(\''+ex.id+'\')">👁 Ver</button>'
+        +'<button class="btn btn-ghost btn-sm" style="flex:1;font-size:10px;padding:2px 4px;color:#dc2626;border-color:#fca5a5" onclick="currentId=\''+ex.id+'\';delExercise()">🗑</button>'
+      +'</div>'
+      +'</div>';
   }).join('');
 }
 function loadEx(id){
@@ -1837,6 +1853,11 @@ function exportJSON(){
 }
 
 // --- EXPORT PDF ---
+function verExercicioAtual(){
+  if(!currentId){alert('Seleciona um exercício primeiro.');return;}
+  verExercicio(currentId);
+}
+
 function verExercicio(id){
   var ex=exercises.find(function(e){return e.id===id;});
   if(!ex)return;
