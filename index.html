@@ -1069,20 +1069,26 @@ function rebuildPath(g, pts, extra){
 }
 
 function buildWavyPath(pts){
-  // build a wavy line along the path between all points
-  var p0=pts[0], p1=pts[pts.length-1];
-  var dx=p1.x-p0.x, dy=p1.y-p0.y;
-  var len=Math.sqrt(dx*dx+dy*dy)||1;
-  var nx=-dy/len, ny=dx/len; // perpendicular
-  var waves=Math.max(3,Math.round(len/18));
+  // Ondulação segmento a segmento — segue o caminho definido pelos pontos
+  if(pts.length<2) return '';
   var amp=6;
-  var d='M '+p0.x+','+p0.y;
-  for(var i=0;i<waves;i++){
-    var t1=(i+0.5)/waves, t2=(i+1)/waves;
-    var sign=(i%2===0)?1:-1;
-    var mx=p0.x+dx*t1+nx*amp*sign, my=p0.y+dy*t1+ny*amp*sign;
-    var ex=p0.x+dx*t2, ey=p0.y+dy*t2;
-    d += ' Q '+mx+','+my+' '+ex+','+ey;
+  var d='M '+pts[0].x+','+pts[0].y;
+  for(var s=0;s<pts.length-1;s++){
+    var p0=pts[s], p1=pts[s+1];
+    var dx=p1.x-p0.x, dy=p1.y-p0.y;
+    var len=Math.sqrt(dx*dx+dy*dy)||1;
+    var nx=-dy/len, ny=dx/len; // perpendicular ao segmento
+    var waves=Math.max(2,Math.round(len/16));
+    // continuar a paridade das ondas entre segmentos
+    var parityOffset = s % 2;
+    for(var i=0;i<waves;i++){
+      var t1=(i+0.5)/waves, t2=(i+1)/waves;
+      var sign=((i+parityOffset)%2===0)?1:-1;
+      var mx=p0.x+dx*t1+nx*amp*sign;
+      var my=p0.y+dy*t1+ny*amp*sign;
+      var ex2=p0.x+dx*t2, ey2=p0.y+dy*t2;
+      d += ' Q '+mx+','+my+' '+ex2+','+ey2;
+    }
   }
   return d;
 }
