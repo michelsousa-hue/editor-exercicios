@@ -2166,10 +2166,10 @@ function buildPlanoSlots(saved){
   if(!slots) return;
   var letras = ['A','B','C','D'];
 
-  function getExOpts(){
-    var esc=document.getElementById('pslot-f-escalao')?.value||'';
-    var cat=document.getElementById('pslot-f-categoria')?.value||'';
-    var sub=document.getElementById('pslot-f-subcategoria')?.value||'';
+  function getExOpts(letra){
+    var esc=document.getElementById('pslot-f-escalao-'+letra)?.value||'';
+    var cat=document.getElementById('pslot-f-categoria-'+letra)?.value||'';
+    var sub=document.getElementById('pslot-f-subcategoria-'+letra)?.value||'';
     return '<option value="">— Selecionar da biblioteca —</option>'
       +exercises.filter(function(ex){
         if(esc && ex.escalao!==esc) return false;
@@ -2183,30 +2183,33 @@ function buildPlanoSlots(saved){
       +'<option value="__manual__">✏️ Inserir manualmente</option>';
   }
 
-  var filterHtml='<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">'
-    +'<select id="pslot-f-escalao" onchange="refreshPlanoSlotOptions()" style="flex:1;min-width:120px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">'
-    +'<option value="">Todos escalões</option>'
-    +'<option>Bambis</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option><option>Senior</option>'
-    +'</select>'
-    +'<select id="pslot-f-categoria" onchange="onPlanoFiltCatChange()" style="flex:1;min-width:140px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">'
-    +'<option value="">Todas categorias</option>'
-    +'<option>Técnica Individual</option><option>Táctica Individual</option><option>Táctica Colectiva</option><option>Guarda-Redes</option><option>Condição Física</option><option>Lúdico</option>'
-    +'</select>'
-    +'<select id="pslot-f-subcategoria" onchange="refreshPlanoSlotOptions()" style="display:none;flex:1;min-width:160px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit">'
-    +'<option value="">Todas subcategorias</option>'
-    +'<option>Processo Ofensivo</option><option>Processo Defensivo</option>'
-    +'<option>Transição Defesa→Ataque</option><option>Transição Ataque→Defesa</option>'
-    +'<option>Bolas Paradas</option>'
-    +'</select>'
-    +'</div>';
+  var selectStyle='padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:11px;font-family:inherit;background:#fff';
 
-  slots.innerHTML = filterHtml + letras.map(function(letra){
+  slots.innerHTML = letras.map(function(letra){
     var s = saved.find(function(x){return x.letra===letra;})||{};
     return '<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px">'
-      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      // letra + filtros na mesma linha
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">'
         +'<span style="font-weight:700;color:var(--accent);font-size:15px;min-width:18px">'+letra+'</span>'
-        +'<select id="pslot-ex-'+letra+'" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit" onchange="onPlanoSlotChange(\''+letra+'\')">'
-          +getExOpts()
+        +'<select id="pslot-f-escalao-'+letra+'" onchange="refreshSlotOptions(\''+letra+'\')" style="'+selectStyle+';flex:1;min-width:100px">'
+          +'<option value="">Todos escalões</option>'
+          +'<option>Bambis</option><option>Sub-9</option><option>Sub-11</option><option>Sub-13</option><option>Sub-15</option><option>Sub-17</option><option>Sub-20</option><option>Senior</option>'
+        +'</select>'
+        +'<select id="pslot-f-categoria-'+letra+'" onchange="onSlotCatChange(\''+letra+'\')" style="'+selectStyle+';flex:1;min-width:120px">'
+          +'<option value="">Todas categorias</option>'
+          +'<option>Técnica Individual</option><option>Táctica Individual</option><option>Táctica Colectiva</option><option>Guarda-Redes</option><option>Condição Física</option><option>Lúdico</option>'
+        +'</select>'
+        +'<select id="pslot-f-subcategoria-'+letra+'" onchange="refreshSlotOptions(\''+letra+'\')" style="display:none;'+selectStyle+';flex:1;min-width:140px">'
+          +'<option value="">Todas subcategorias</option>'
+          +'<option>Processo Ofensivo</option><option>Processo Defensivo</option>'
+          +'<option>Transição Defesa→Ataque</option><option>Transição Ataque→Defesa</option>'
+          +'<option>Bolas Paradas</option>'
+        +'</select>'
+      +'</div>'
+      // select do exercício
+      +'<div style="margin-bottom:6px">'
+        +'<select id="pslot-ex-'+letra+'" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit" onchange="onPlanoSlotChange(\''+letra+'\')">'
+          +getExOpts(letra)
         +'</select>'
       +'</div>'
       +'<div id="pslot-manual-'+letra+'" style="display:none;margin-bottom:6px">'
@@ -2233,20 +2236,21 @@ function buildPlanoSlots(saved){
   });
 }
 
-function onPlanoFiltCatChange(){
-  var cat=document.getElementById('pslot-f-categoria')?.value||'';
-  var sub=document.getElementById('pslot-f-subcategoria');
+function onSlotCatChange(letra){
+  var cat=document.getElementById('pslot-f-categoria-'+letra)?.value||'';
+  var sub=document.getElementById('pslot-f-subcategoria-'+letra);
   if(sub){
     sub.style.display=cat==='Táctica Colectiva'?'':'none';
     sub.value='';
   }
-  refreshPlanoSlotOptions();
+  refreshSlotOptions(letra);
 }
 
-function refreshPlanoSlotOptions(){
-  var esc=document.getElementById('pslot-f-escalao')?.value||'';
-  var cat=document.getElementById('pslot-f-categoria')?.value||'';
-  var sub=document.getElementById('pslot-f-subcategoria')?.value||'';
+function refreshSlotOptions(letra){
+  var esc=document.getElementById('pslot-f-escalao-'+letra)?.value||'';
+  var cat=document.getElementById('pslot-f-categoria-'+letra)?.value||'';
+  var sub=document.getElementById('pslot-f-subcategoria-'+letra)?.value||'';
+  var currentVal=document.getElementById('pslot-ex-'+letra)?.value||'';
   var opts='<option value="">— Selecionar da biblioteca —</option>'
     +exercises.filter(function(ex){
       if(esc && ex.escalao!==esc) return false;
@@ -2255,9 +2259,14 @@ function refreshPlanoSlotOptions(){
       return true;
     }).map(function(ex){
       var lbl=[ex.title,ex.escalao,ex.subcategoria||ex.categoria].filter(Boolean).join(' · ');
-      return '<option value="'+ex.id+'">'+lbl+'</option>';
+      return '<option value="'+ex.id+'"'+(ex.id===currentVal?' selected':'')+'>'+lbl+'</option>';
     }).join('')
-    +'<option value="__manual__">✏️ Inserir manualmente</option>';
+    +'<option value="__manual__"'+(currentVal==='__manual__'?' selected':'')+'>✏️ Inserir manualmente</option>';
+  var sel=document.getElementById('pslot-ex-'+letra);
+  if(sel) sel.innerHTML=opts;
+}
+
+function onPlanoSlotChange(letra){
   ['A','B','C','D'].forEach(function(letra){
     var sel=document.getElementById('pslot-ex-'+letra); if(!sel) return;
     var cur=sel.value; sel.innerHTML=opts; if(cur) sel.value=cur;
