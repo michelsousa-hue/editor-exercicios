@@ -1907,6 +1907,24 @@ function verExercicio(id){
   openModal('modal-ver-ex');
 }
 
+function makeCircularLogo(b64, corHex, size){
+  size=size||300;
+  return new Promise(function(resolve){
+    var img=new Image();
+    img.onload=function(){
+      var cv=document.createElement('canvas');cv.width=cv.height=size;
+      var ctx=cv.getContext('2d');
+      ctx.fillStyle=corHex||'#8B1A1A';ctx.fillRect(0,0,size,size);
+      ctx.beginPath();ctx.arc(size/2,size/2,size/2,0,Math.PI*2);ctx.closePath();ctx.clip();
+      var zoom=1.30,offset=(size-(size*zoom))/2;
+      ctx.drawImage(img,offset,offset,size*zoom,size*zoom);
+      resolve(cv.toDataURL('image/png'));
+    };
+    img.onerror=function(){resolve(null);};
+    img.src=b64;
+  });
+}
+
 async function exportPDF(){
   if(!currentId){ alert('Seleciona um exercicio primeiro.'); return; }
   var ex = exercises.find(function(e){return e.id===currentId;});
@@ -1982,8 +2000,8 @@ async function exportPDF(){
   var logoX=M;
   if(clubeLogo){
     try{
-      var fmt2=clubeLogo.indexOf('data:image/png')===0?'PNG':'JPEG';
-      doc.addImage(clubeLogo,fmt2,M,1,18,18);logoX=M+21;
+      var logoCirc=await makeCircularLogo(clubeLogo, corHex);
+      if(logoCirc){doc.addImage(logoCirc,'PNG',M,1,18,18);logoX=M+21;}
     }catch(e){}
   }
   doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(255,255,255);
@@ -2419,7 +2437,7 @@ async function exportPlanoPDF(){
   doc.setFillColor(cor[0],cor[1],cor[2]);
   doc.rect(0,0,W,20,'F');
   var logoX=M;
-  if(clubeLogo){ try{ doc.addImage(clubeLogo,'PNG',M,2,16,16); logoX=M+19; }catch(e){} }
+  if(clubeLogo){ try{ var logoCirc2=await makeCircularLogo(clubeLogo,corHex); if(logoCirc2){doc.addImage(logoCirc2,'PNG',M,2,16,16); logoX=M+19;} }catch(e){} }
   doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(255,255,255);
   doc.text(pdfStr(clubeNome), logoX, 10);
   doc.setFontSize(8); doc.setFont('helvetica','normal');
