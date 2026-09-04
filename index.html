@@ -132,6 +132,21 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
 </style>
 </head>
 <body>
+
+<!-- ECRÃ DE PIN -->
+<div id="pin-screen" style="display:none;position:fixed;inset:0;background:#f3f4f6;z-index:99999;align-items:center;justify-content:center;flex-direction:column;gap:20px">
+  <div style="background:#fff;border-radius:16px;padding:32px 28px;box-shadow:0 8px 32px rgba(0,0,0,.12);width:320px;text-align:center">
+    <div style="font-size:32px;margin-bottom:8px">🏒</div>
+    <div style="font-size:20px;font-weight:700;color:#111;margin-bottom:4px" id="pin-clube-nome">Editor de Exercícios</div>
+    <div style="font-size:13px;color:#6b7280;margin-bottom:24px">Hóquei em Patins</div>
+    <div style="font-size:13px;color:#374151;margin-bottom:10px;font-weight:500">Introduz o teu PIN de acesso</div>
+    <input type="password" id="pin-input" maxlength="6" placeholder="••••"
+      style="width:100%;text-align:center;font-size:28px;letter-spacing:8px;padding:12px;border:2px solid #e5e7eb;border-radius:10px;outline:none;box-sizing:border-box;font-family:inherit"
+      onkeydown="if(event.key==='Enter')checkPin()">
+    <div id="pin-error" style="color:#dc2626;font-size:12px;margin-top:8px;display:none">PIN incorrecto. Tenta novamente.</div>
+    <button onclick="checkPin()" style="margin-top:16px;width:100%;padding:12px;background:#8B1A1A;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">Entrar</button>
+  </div>
+</div>
 <header>
   <h1>&#9651; Editor de Exercicios &mdash; Hoquei em Patins</h1>
   <span style="font-size:11px;color:var(--text2);margin-left:auto" id="undo-info"></span>
@@ -2745,7 +2760,111 @@ async function loadFromSupabase(){
   setTimeout(function(){hint('');}, 3000);
 }
 
-loadFromSupabase();
+// ═══ AUTENTICAÇÃO POR PIN ═══
+var _pinOk = false;
+
+function _simpleHash(str){
+  // hash simples para o token — não é criptografia, é ofuscação suficiente
+  var h=0;
+  for(var i=0;i<str.length;i++){h=(Math.imul(31,h)+str.charCodeAt(i))|0;}
+  return Math.abs(h).toString(36);
+}
+
+function _makeToken(pin){
+  var ts=Date.now();
+  return btoa(pin+':'+ts+':'+_simpleHash(pin+ts+SUPABASE_KEY.slice(-8)));
+}
+
+function _parseToken(token){
+  try{
+    var dec=atob(token);
+    var parts=dec.split(':');
+    if(parts.length<3)return null;
+    var pin=parts[0],ts=parseInt(parts[1]),hash=parts[2];
+    // verificar que não expirou (5 minutos)
+    if(Date.now()-ts>5*60*1000)return null;
+    // verificar hash
+    if(_simpleHash(pin+ts+SUPABASE_KEY.slice(-8))!==hash)return null;
+    return pin;
+  }catch(e){return null;}
+}
+
+async function initAuth(){
+  // 1. Ver se há token na URL (vindo da app)
+  var urlParams=new URLSearchParams(window.location.search);
+  var token=urlParams.get('t');
+  if(token){
+    var pinFromToken=_parseToken(token);
+    if(pinFromToken){
+      var valid=await validatePin(pinFromToken);
+      if(valid){
+        // limpar token da URL sem reload
+        history.replaceState({},'',window.location.pathname);
+        _pinOk=true;
+        startEditor();
+        return;
+      }
+    }
+  }
+  // 2. Verificar se já autenticado nesta sessão
+  if(sessionStorage.getItem('editor_auth')==='1'){
+    _pinOk=true;
+    startEditor();
+    return;
+  }
+  // 3. Mostrar ecrã de PIN
+  showPinScreen();
+}
+
+async function validatePin(pin){
+  try{
+    var {data}=await sb.from('config').select('value').eq('key','pins').single();
+    if(!data)return false;
+    var pins=JSON.parse(data.value||'{}');
+    // aceitar qualquer PIN válido do clube
+    return Object.values(pins).some(function(p){return String(p)===String(pin);});
+  }catch(e){return false;}
+}
+
+async function showPinScreen(){
+  // carregar nome e cor do clube para o ecrã de PIN
+  try{
+    var {data}=await sb.from('config').select('key,value').in('key',['clube_nome','clube_cor']);
+    if(data) data.forEach(function(r){
+      if(r.key==='clube_nome'){var el=document.getElementById('pin-clube-nome');if(el)el.textContent=r.value||'Editor de Exercícios';}
+      if(r.key==='clube_cor'){var btn=document.querySelector('#pin-screen button');if(btn)btn.style.background=r.value||'#8B1A1A';}
+    });
+  }catch(e){}
+  var ps=document.getElementById('pin-screen');
+  if(ps){ps.style.display='flex';}
+  setTimeout(function(){var inp=document.getElementById('pin-input');if(inp)inp.focus();},100);
+}
+
+async function checkPin(){
+  var inp=document.getElementById('pin-input');
+  var err=document.getElementById('pin-error');
+  if(!inp)return;
+  var pin=inp.value.trim();
+  if(!pin){inp.focus();return;}
+  var valid=await validatePin(pin);
+  if(valid){
+    sessionStorage.setItem('editor_auth','1');
+    _pinOk=true;
+    document.getElementById('pin-screen').style.display='none';
+    startEditor();
+  } else {
+    if(err){err.style.display='block';}
+    inp.value='';inp.focus();
+    setTimeout(function(){if(err)err.style.display='none';},3000);
+  }
+}
+
+function startEditor(){
+  loadFromSupabase();
+}
+
+// Iniciar autenticação
+initAuth();
 
 </script>
 <!-- CROP MODAL -->
