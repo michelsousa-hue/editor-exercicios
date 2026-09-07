@@ -1380,11 +1380,11 @@ function switchTab(tab){
   document.querySelector('.tsep').style.display = isPlanos ? 'none' : '';
   document.querySelectorAll('.btn-ex-only').forEach(function(b){
     if(isPlanos){ b.style.display='none'; }
-    else { b.style.display = b.tagName==='DIV' ? 'flex' : ''; }
+    else { b.style.display = b.tagName==='DIV' ? 'flex' : 'inline-flex'; }
   });
   var bva=document.getElementById('btns-ver-apagar');
   if(bva) bva.style.display=isPlanos?'none':'flex';
-  document.querySelectorAll('.btn-plano-only').forEach(function(b){ b.style.display = isPlanos ? '' : 'none'; });
+  document.querySelectorAll('.btn-plano-only').forEach(function(b){ b.style.display = isPlanos ? 'inline-flex' : 'none'; });
 }
 
 function exportAtivo(){
@@ -2330,7 +2330,9 @@ function getPlanoExercicios(){
 }
 
 async function savePlano(){
+  console.log('savePlano chamado, currentPlanoId:', currentPlanoId);
   var data = document.getElementById('p-data').value;
+  console.log('data:', data);
   if(!data){ alert('Introduz uma data para o plano.'); return; }
   var now = new Date().toISOString();
   var plano = {
