@@ -2361,6 +2361,41 @@ async function savePlano(){
   renderPlanosList();
   hint('✅ Plano guardado!');
   setTimeout(function(){hint('');},3000);
+  // Registar automaticamente na aba Unidades de Treino (sem PDF)
+  registarPlanoNaTreinos(plano);
+}
+
+async function registarPlanoNaTreinos(plano){
+  try{
+    // Mapear escalão para grupo (Sub-11 → Sub9+Sub11, etc.)
+    function escalaoToGrupo(escalao){
+      if(!escalao) return null;
+      var e=escalao.toLowerCase().replace(/[^a-z0-9]/g,'');
+      // tentar correspondência directa com o padrão SubX+SubY
+      var grupos=['Sub9+Sub11','Sub13+Sub15','Sub11+Sub13','Sub15+Sub17','Sub17+Sub20'];
+      for(var i=0;i<grupos.length;i++){
+        var subs=grupos[i].split('+');
+        if(subs.some(function(s){return e.includes(s.toLowerCase().replace(/[^a-z0-9]/g,''));}))
+          return grupos[i];
+      }
+      // fallback — usar o escalão directamente como grupo
+      return escalao;
+    }
+    var grupo=escalaoToGrupo(plano.escalao)||plano.escalao||'Sub9+Sub11';
+    var titulo='📅 Plano '+(plano.data||'')+(plano.escalao?' · '+plano.escalao:'')+(plano.objetivos?' — '+plano.objetivos.substring(0,50):'');
+    var rec={
+      id:'plano-'+plano.id,
+      titulo:titulo,
+      data:plano.data||new Date().toISOString().split('T')[0],
+      grupo:grupo,
+      ficheiro_url:null,
+      ficheiro_mime:null,
+      criado_em:plano.criado_em||new Date().toISOString()
+    };
+    await sb.from('treinos').upsert(rec);
+  }catch(e){
+    console.warn('Aviso: não foi possível registar plano nas Unidades de Treino:', e.message);
+  }
 }
 
 function deletePlanoAtual(){
@@ -2372,6 +2407,8 @@ async function confirmDelPlano(){
   if(!currentPlanoId) return;
   try{
     await sb.from('planos_treino').delete().eq('id', currentPlanoId);
+    // remover também das Unidades de Treino
+    await sb.from('treinos').delete().eq('id','plano-'+currentPlanoId).catch(function(){});
     planos = planos.filter(function(p){return p.id!==currentPlanoId;});
     currentPlanoId = null;
     document.getElementById('plano-empty-state').style.display='flex';
