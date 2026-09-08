@@ -568,6 +568,19 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
   </div>
 </div>
 <!-- MODAL APAGAR PLANO -->
+<!-- Modal: Guardar plano existente -->
+<div class="modal-overlay" id="modal-save-plano">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header"><span class="modal-title">💾 Guardar Plano</span></div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:20px">Este plano já existe. O que queres fazer?</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-success" onclick="savePlanoSubstituir()" style="width:100%">♻️ Substituir plano existente</button>
+      <button class="btn btn-primary" onclick="savePlanoNovo()" style="width:100%">✨ Guardar como novo plano</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-save-plano')" style="width:100%">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-del-plano">
   <div class="modal">
     <h3>Apagar Plano</h3>
@@ -2329,15 +2342,53 @@ function getPlanoExercicios(){
   }).filter(Boolean);
 }
 
+// grupos carregados do Supabase
+var _editorGrupos = [];
+
+async function loadGrupos(){
+  try{
+    var {data}=await sb.from('config').select('value').eq('key','grupos').single();
+    if(data&&data.value){
+      var g=JSON.parse(data.value);
+      if(Array.isArray(g)&&g.length) _editorGrupos=g;
+    }
+  }catch(e){}
+  if(!_editorGrupos.length) _editorGrupos=['Sub9+Sub11','Sub13+Sub15'];
+}
+
+function escalaoToGrupo(escalao){
+  if(!escalao) return _editorGrupos[0]||'Sub9+Sub11';
+  var e=escalao.toLowerCase().replace(/[^a-z0-9]/g,'');
+  // usar os grupos reais carregados do Supabase
+  for(var i=0;i<_editorGrupos.length;i++){
+    var subs=_editorGrupos[i].split('+').map(function(s){return s.trim().toLowerCase().replace(/[^a-z0-9]/g,'');});
+    if(subs.some(function(s){return e===s||e.includes(s)||s.includes(e);}))
+      return _editorGrupos[i];
+  }
+  return _editorGrupos[0]||'Sub9+Sub11';
+}
+
+var _planoParaSalvar = null; // usado pelo modal substituir/novo
+
 async function savePlano(){
-  console.log('savePlano chamado, currentPlanoId:', currentPlanoId);
   var data = document.getElementById('p-data').value;
-  console.log('data:', data);
   if(!data){ alert('Introduz uma data para o plano.'); return; }
+
+  // Se é um plano existente — perguntar substituir ou novo
+  if(currentPlanoId){
+    _planoParaSalvar = buildPlanoObj(currentPlanoId);
+    openModal('modal-save-plano');
+  } else {
+    // Plano novo — guardar directamente
+    await doSavePlano(buildPlanoObj(null));
+  }
+}
+
+function buildPlanoObj(id){
   var now = new Date().toISOString();
-  var plano = {
-    id: currentPlanoId || ('pl-'+Date.now()),
-    data: data,
+  return {
+    id: id || ('pl-'+Date.now()),
+    data: document.getElementById('p-data').value,
     hora: document.getElementById('p-hora').value||'',
     escalao: document.getElementById('p-escalao').value||'',
     duracao: parseInt(document.getElementById('p-duracao').value)||null,
@@ -2349,12 +2400,27 @@ async function savePlano(){
     microciclo: document.getElementById('p-microciclo').value||'',
     objetivos: document.getElementById('p-objetivos').value||'',
     exercicios: getPlanoExercicios(),
-    criado_em: currentPlanoId ? (planos.find(function(p){return p.id===currentPlanoId;})||{}).criado_em||now : now,
+    criado_em: id ? (planos.find(function(p){return p.id===id;})||{}).criado_em||now : now,
     atualizado_em: now
   };
-  var res = await sb.from('planos_treino').upsert(plano);
-  if(!res.data && res.error){
-    hint('❌ Erro ao guardar plano: '+(res.error.message||JSON.stringify(res.error)));
+}
+
+async function savePlanoSubstituir(){
+  closeModal('modal-save-plano');
+  await doSavePlano(_planoParaSalvar);
+}
+
+async function savePlanoNovo(){
+  closeModal('modal-save-plano');
+  var novo = buildPlanoObj(null); // novo id
+  await doSavePlano(novo);
+}
+
+async function doSavePlano(plano){
+  hint('A guardar...');
+  var {error} = await sb.from('planos_treino').upsert(plano);
+  if(error){
+    hint('❌ Erro ao guardar: '+error.message);
     return;
   }
   currentPlanoId = plano.id;
@@ -2363,27 +2429,12 @@ async function savePlano(){
   renderPlanosList();
   hint('✅ Plano guardado!');
   setTimeout(function(){hint('');},3000);
-  // Registar automaticamente na aba Unidades de Treino (sem PDF)
   registarPlanoNaTreinos(plano);
 }
 
 async function registarPlanoNaTreinos(plano){
   try{
-    // Mapear escalão para grupo (Sub-11 → Sub9+Sub11, etc.)
-    function escalaoToGrupo(escalao){
-      if(!escalao) return null;
-      var e=escalao.toLowerCase().replace(/[^a-z0-9]/g,'');
-      // tentar correspondência directa com o padrão SubX+SubY
-      var grupos=['Sub9+Sub11','Sub13+Sub15','Sub11+Sub13','Sub15+Sub17','Sub17+Sub20'];
-      for(var i=0;i<grupos.length;i++){
-        var subs=grupos[i].split('+');
-        if(subs.some(function(s){return e.includes(s.toLowerCase().replace(/[^a-z0-9]/g,''));}))
-          return grupos[i];
-      }
-      // fallback — usar o escalão directamente como grupo
-      return escalao;
-    }
-    var grupo=escalaoToGrupo(plano.escalao)||plano.escalao||'Sub9+Sub11';
+    var grupo=escalaoToGrupo(plano.escalao);
     var titulo='📅 Plano '+(plano.data||'')+(plano.escalao?' · '+plano.escalao:'')+(plano.objetivos?' — '+plano.objetivos.substring(0,50):'');
     var rec={
       id:'plano-'+plano.id,
@@ -2904,6 +2955,7 @@ function startEditor(){
 
 // Iniciar autenticação
 initAuth();
+loadGrupos();
 
 </script>
 <!-- CROP MODAL -->
