@@ -2354,6 +2354,7 @@ async function loadGrupos(){
     }
   }catch(e){}
   if(!_editorGrupos.length) _editorGrupos=['Sub9+Sub11','Sub13+Sub15'];
+  console.log('Grupos carregados:', _editorGrupos);
 }
 
 function escalaoToGrupo(escalao){
@@ -2950,12 +2951,11 @@ async function checkPin(){
 }
 
 function startEditor(){
-  loadFromSupabase();
+  loadGrupos().then(function(){ loadFromSupabase(); });
 }
 
 // Iniciar autenticação
 initAuth();
-loadGrupos();
 
 </script>
 <!-- CROP MODAL -->
