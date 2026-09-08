@@ -2358,15 +2358,24 @@ async function loadGrupos(){
 }
 
 function escalaoToGrupo(escalao){
-  if(!escalao) return _editorGrupos[0]||'Sub9+Sub11';
-  var e=escalao.toLowerCase().replace(/[^a-z0-9]/g,'');
-  // usar os grupos reais carregados do Supabase
+  if(!escalao) return _editorGrupos[0];
+  var el=escalao.toLowerCase();
+  // caso especial: séniores
   for(var i=0;i<_editorGrupos.length;i++){
-    var subs=_editorGrupos[i].split('+').map(function(s){return s.trim().toLowerCase().replace(/[^a-z0-9]/g,'');});
-    if(subs.some(function(s){return e===s||e.includes(s)||s.includes(e);}))
+    if(_editorGrupos[i].toLowerCase().includes('s') && 
+       (el.includes('senior')||el.includes('sénior')||el.includes('seniores')||el.includes('séniores')) &&
+       (_editorGrupos[i].toLowerCase().includes('senior')||_editorGrupos[i].toLowerCase().includes('sénior')))
       return _editorGrupos[i];
   }
-  return _editorGrupos[0]||'Sub9+Sub11';
+  // caso geral: extrair número do escalão e comparar com números do grupo
+  var num=escalao.replace(/[^0-9]/g,'');
+  if(num){
+    for(var i=0;i<_editorGrupos.length;i++){
+      var nums=_editorGrupos[i].match(/\d+/g)||[];
+      if(nums.indexOf(num)>=0) return _editorGrupos[i];
+    }
+  }
+  return _editorGrupos[0];
 }
 
 var _planoParaSalvar = null; // usado pelo modal substituir/novo
