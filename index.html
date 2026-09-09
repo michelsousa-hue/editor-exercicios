@@ -1078,12 +1078,18 @@ function rebuildPath(g, pts, extra){
   } else {
     d = 'M '+all[0].x+','+all[0].y;
     if(all.length===2){
+      // linha recta entre 2 pontos — correcto para move/pass/shot
       d += ' L '+all[1].x+','+all[1].y;
-    } else if(all.length>2){
+    } else if(all.length===3){
+      // 3 pontos: curva quadrática suave
+      var mx=(all[0].x+all[2].x)/2, my=(all[0].y+all[2].y)/2;
+      d += ' Q '+all[1].x+','+all[1].y+' '+all[2].x+','+all[2].y;
+    } else if(all.length>3){
+      // 4+ pontos: Catmull-Rom spline com tensão maior
       for(var i=0;i<all.length-1;i++){
         var p0=all[Math.max(0,i-1)], p1=all[i], p2=all[i+1], p3=all[Math.min(all.length-1,i+2)];
-        var cp1x=p1.x+(p2.x-p0.x)/6, cp1y=p1.y+(p2.y-p0.y)/6;
-        var cp2x=p2.x-(p3.x-p1.x)/6, cp2y=p2.y-(p3.y-p1.y)/6;
+        var cp1x=p1.x+(p2.x-p0.x)/4, cp1y=p1.y+(p2.y-p0.y)/4;
+        var cp2x=p2.x-(p3.x-p1.x)/4, cp2y=p2.y-(p3.y-p1.y)/4;
         d += ' C '+cp1x+','+cp1y+' '+cp2x+','+cp2y+' '+p2.x+','+p2.y;
       }
     }
