@@ -581,6 +581,24 @@ header h1{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:8
   </div>
 </div>
 
+<!-- Modal preview de exercício para o plano -->
+<div class="modal-overlay" id="modal-ex-preview" onclick="if(event.target===this)closeModal('modal-ex-preview')">
+  <div class="modal" style="max-width:560px;width:95vw">
+    <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center">
+      <span class="modal-title" id="mep-titulo" style="font-size:15px;font-weight:700"></span>
+      <button onclick="closeModal('modal-ex-preview')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2)">✕</button>
+    </div>
+    <div id="mep-meta" style="font-size:12px;color:var(--text2);margin-bottom:10px"></div>
+    <div id="mep-campo" style="width:100%;background:#111;border-radius:8px;overflow:hidden;margin-bottom:12px;min-height:200px;display:flex;align-items:center;justify-content:center"></div>
+    <div id="mep-objetivo" style="font-size:13px;margin-bottom:6px"></div>
+    <div id="mep-descricao" style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.5"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeModal('modal-ex-preview')">Fechar</button>
+      <button class="btn btn-success" id="mep-usar-btn" onclick="usarExPreview()">✅ Usar este exercício</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-del-plano">
   <div class="modal">
     <h3>Apagar Plano</h3>
@@ -2240,11 +2258,12 @@ function buildPlanoSlots(saved){
           +'<option>Bolas Paradas</option>'
         +'</select>'
       +'</div>'
-      // select do exercício
-      +'<div style="margin-bottom:6px">'
-        +'<select id="pslot-ex-'+letra+'" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit" onchange="onPlanoSlotChange(\''+letra+'\')">'
+      // select do exercício + botão preview
+      +'<div style="margin-bottom:6px;display:flex;gap:4px;align-items:center">'
+        +'<select id="pslot-ex-'+letra+'" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit" onchange="onPlanoSlotChange(\''+letra+'\')">'
           +getExOpts(letra)
         +'</select>'
+        +'<button onclick="previewExSlot(\''+letra+'\')" title="Pré-visualizar exercício" style="flex-shrink:0;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2,#f3f4f6);cursor:pointer;font-size:13px;line-height:1">👁</button>'
       +'</div>'
       +'<div id="pslot-manual-'+letra+'" style="display:none;margin-bottom:6px">'
         +'<input id="pslot-titulo-'+letra+'" placeholder="Título do exercício" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:4px;box-sizing:border-box;font-family:inherit">'
@@ -2311,6 +2330,56 @@ function onPlanoSlotChange(letra){
   var sel = document.getElementById('pslot-ex-'+letra);
   var manual = document.getElementById('pslot-manual-'+letra);
   if(manual) manual.style.display = sel&&sel.value==='__manual__'?'block':'none';
+}
+
+var _previewLetra = null; // slot a preencher quando clicar "Usar"
+
+function previewExSlot(letra){
+  var sel = document.getElementById('pslot-ex-'+letra);
+  if(!sel||!sel.value||sel.value==='__manual__'){
+    alert('Selecciona primeiro um exercício no dropdown.');
+    return;
+  }
+  var ex = exercises.find(function(e){ return e.id===sel.value; });
+  if(!ex){ alert('Exercício não encontrado.'); return; }
+  _previewLetra = letra;
+
+  // título e meta
+  document.getElementById('mep-titulo').textContent = ex.title||'Sem título';
+  var meta = [ex.escalao, ex.categoria, ex.subcategoria, ex.duracao?(ex.duracao+'min'):null].filter(Boolean).join(' · ');
+  document.getElementById('mep-meta').textContent = meta;
+
+  // campo SVG
+  var campoDiv = document.getElementById('mep-campo');
+  if(ex.svg_data){
+    // svg_data é o SVG completo do campo com os elementos
+    campoDiv.innerHTML = ex.svg_data;
+    var svgEl = campoDiv.querySelector('svg');
+    if(svgEl){ svgEl.style.width='100%'; svgEl.style.height='auto'; svgEl.style.display='block'; }
+  } else if(ex.imagem_url){
+    campoDiv.innerHTML = '<img src="'+ex.imagem_url+'" style="width:100%;height:auto;display:block">';
+  } else {
+    campoDiv.innerHTML = '<div style="color:#666;font-size:13px;padding:20px">Sem imagem disponível</div>';
+  }
+
+  // objetivo e descrição
+  var objDiv = document.getElementById('mep-objetivo');
+  objDiv.innerHTML = ex.objetivo ? '<strong>Objetivo:</strong> '+ex.objetivo : '';
+
+  var descDiv = document.getElementById('mep-descricao');
+  descDiv.innerHTML = ex.descricao ? '<strong>Descrição:</strong><br>'+ex.descricao : '';
+
+  openModal('modal-ex-preview');
+}
+
+function usarExPreview(){
+  // já está seleccionado no dropdown — só fecha o modal
+  closeModal('modal-ex-preview');
+  if(_previewLetra){
+    // garantir que o slot fica actualizado
+    onPlanoSlotChange(_previewLetra);
+  }
+  _previewLetra = null;
 }
 
 function getPlanoExercicios(){
