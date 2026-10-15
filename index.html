@@ -2258,12 +2258,18 @@ function buildPlanoSlots(saved){
           +'<option>Bolas Paradas</option>'
         +'</select>'
       +'</div>'
-      // select do exercício + botão preview
-      +'<div style="margin-bottom:6px;display:flex;gap:4px;align-items:center">'
-        +'<select id="pslot-ex-'+letra+'" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit" onchange="onPlanoSlotChange(\''+letra+'\')">'
+      // dropdown próprio com 👁 em cada exercício (o select fica escondido e guarda o valor)
+      +'<div class="exdd" style="position:relative;margin-bottom:6px">'
+        +'<select id="pslot-ex-'+letra+'" style="display:none" onchange="onPlanoSlotChange(\''+letra+'\')">'
           +getExOpts(letra)
         +'</select>'
-        +'<button onclick="previewExSlot(\''+letra+'\')" title="Pré-visualizar exercício" style="flex-shrink:0;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2,#f3f4f6);cursor:pointer;font-size:13px;line-height:1">👁</button>'
+        +'<button type="button" onclick="toggleExDD(\''+letra+'\')" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;background:#fff;cursor:pointer;text-align:left">'
+          +'<span id="pslot-lbl-'+letra+'" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">— Selecionar da biblioteca —</span><span style="color:var(--text2);flex-shrink:0">▾</span>'
+        +'</button>'
+        +'<div id="pslot-dd-'+letra+'" style="display:none;position:absolute;left:0;right:0;top:100%;margin-top:2px;z-index:50;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);overflow:hidden">'
+          +'<input id="pslot-q-'+letra+'" placeholder="🔍 Pesquisar exercício..." oninput="renderExDD(\''+letra+'\')" style="width:100%;box-sizing:border-box;padding:7px 10px;border:none;border-bottom:1px solid var(--border);font-size:12px;font-family:inherit;outline:none">'
+          +'<div id="pslot-list-'+letra+'" style="max-height:280px;overflow-y:auto"></div>'
+        +'</div>'
       +'</div>'
       +'<div id="pslot-manual-'+letra+'" style="display:none;margin-bottom:6px">'
         +'<input id="pslot-titulo-'+letra+'" placeholder="Título do exercício" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-bottom:4px;box-sizing:border-box;font-family:inherit">'
@@ -2287,6 +2293,7 @@ function buildPlanoSlots(saved){
       var de=document.getElementById('pslot-desc-'+s.letra); if(de) de.value=s.descricao||'';
     }
   });
+  letras.forEach(syncExLabel);
 }
 
 function onSlotCatChange(letra){
@@ -2317,6 +2324,9 @@ function refreshSlotOptions(letra){
     +'<option value="__manual__"'+(currentVal==='__manual__'?' selected':'')+'>✏️ Inserir manualmente</option>';
   var sel=document.getElementById('pslot-ex-'+letra);
   if(sel) sel.innerHTML=opts;
+  syncExLabel(letra);
+  var dd=document.getElementById('pslot-dd-'+letra);
+  if(dd&&dd.style.display!=='none') renderExDD(letra);
 }
 
 function onPlanoSlotChange(letra){
@@ -2330,29 +2340,95 @@ function onPlanoSlotChange(letra){
   var sel = document.getElementById('pslot-ex-'+letra);
   var manual = document.getElementById('pslot-manual-'+letra);
   if(manual) manual.style.display = sel&&sel.value==='__manual__'?'block':'none';
+  syncExLabel(letra);
 }
 
-var _previewLetra = null; // slot a preencher quando clicar "Usar"
+// ── Dropdown de exercícios com pré-visualização ──
+function _escH(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-function previewExSlot(letra){
-  var sel = document.getElementById('pslot-ex-'+letra);
-  if(!sel||!sel.value||sel.value==='__manual__'){
-    alert('Selecciona primeiro um exercício no dropdown.');
-    return;
+function syncExLabel(letra){
+  var sel=document.getElementById('pslot-ex-'+letra);
+  var lbl=document.getElementById('pslot-lbl-'+letra);
+  if(!sel||!lbl) return;
+  var o=sel.options[sel.selectedIndex];
+  lbl.textContent = (o&&o.value) ? o.text : '— Selecionar da biblioteca —';
+  lbl.style.color = (o&&o.value) ? '' : 'var(--text2)';
+}
+
+function closeAllExDD(){
+  ['A','B','C','D'].forEach(function(l){
+    var dd=document.getElementById('pslot-dd-'+l); if(dd) dd.style.display='none';
+  });
+}
+
+function toggleExDD(letra){
+  var dd=document.getElementById('pslot-dd-'+letra); if(!dd) return;
+  var aberto=dd.style.display!=='none';
+  closeAllExDD();
+  if(aberto) return;
+  var q=document.getElementById('pslot-q-'+letra); if(q) q.value='';
+  renderExDD(letra);
+  dd.style.display='block';
+  if(q) q.focus();
+  var cur=dd.querySelector('[data-cur="1"]');
+  if(cur) cur.scrollIntoView({block:'nearest'});
+}
+
+function renderExDD(letra){
+  var sel=document.getElementById('pslot-ex-'+letra);
+  var list=document.getElementById('pslot-list-'+letra);
+  if(!sel||!list) return;
+  var q=(document.getElementById('pslot-q-'+letra)?.value||'').toLowerCase().trim();
+  var html='', n=0;
+  for(var i=0;i<sel.options.length;i++){
+    var o=sel.options[i], v=o.value;
+    if(!v) continue; // placeholder
+    var isEx = v!=='__manual__';
+    if(isEx && q && o.text.toLowerCase().indexOf(q)<0) continue;
+    var cur = v===sel.value;
+    if(isEx) n++;
+    html+='<div data-cur="'+(cur?1:0)+'" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid #f1f1f1;font-size:12px;'+(cur?'background:#eef4ff;font-weight:600;':'')+(isEx?'':'color:var(--text2);')+'"'
+      +' onmouseover="this.style.background=\'#f5f7fa\'" onmouseout="this.style.background=\''+(cur?'#eef4ff':'')+'\'">'
+      +'<span onclick="selectExDD(\''+letra+'\',\''+_escH(v)+'\')" style="flex:1;cursor:pointer;line-height:1.35">'+_escH(o.text)+'</span>'
+      +(isEx?'<button type="button" title="Pré-visualizar" onclick="event.stopPropagation();previewExDD(\''+letra+'\',\''+_escH(v)+'\')" style="flex-shrink:0;padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px;line-height:1">👁</button>':'')
+      +'</div>';
   }
-  var ex = exercises.find(function(e){ return e.id===sel.value; });
-  if(!ex){ alert('Exercício não encontrado.'); return; }
-  _previewLetra = letra;
+  if(!n) html='<div style="padding:10px;font-size:12px;color:var(--text2)">Nenhum exercício encontrado com estes filtros.</div>'+html;
+  list.innerHTML=html;
+}
 
-  // título e meta
+function selectExDD(letra,val){
+  var sel=document.getElementById('pslot-ex-'+letra); if(!sel) return;
+  sel.value=val;
+  onPlanoSlotChange(letra);
+  closeAllExDD();
+}
+
+// fechar dropdown ao clicar fora (mas não quando se usa o modal de preview)
+document.addEventListener('mousedown',function(e){
+  if(e.target.closest && (e.target.closest('.exdd')||e.target.closest('#modal-ex-preview'))) return;
+  closeAllExDD();
+});
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape') return;
+  var m=document.getElementById('modal-ex-preview');
+  if(m&&m.classList.contains('open')) closeModal('modal-ex-preview');
+  else closeAllExDD();
+});
+
+var _previewLetra = null, _previewExId = null;
+
+function previewExDD(letra,id){
+  var ex = exercises.find(function(e){ return e.id===id; });
+  if(!ex){ alert('Exercício não encontrado.'); return; }
+  _previewLetra = letra; _previewExId = id;
+
   document.getElementById('mep-titulo').textContent = ex.title||'Sem título';
   var meta = [ex.escalao, ex.categoria, ex.subcategoria, ex.duracao?(ex.duracao+'min'):null].filter(Boolean).join(' · ');
   document.getElementById('mep-meta').textContent = meta;
 
-  // campo SVG
   var campoDiv = document.getElementById('mep-campo');
   if(ex.svg_data){
-    // svg_data é o SVG completo do campo com os elementos
     campoDiv.innerHTML = ex.svg_data;
     var svgEl = campoDiv.querySelector('svg');
     if(svgEl){ svgEl.style.width='100%'; svgEl.style.height='auto'; svgEl.style.display='block'; }
@@ -2362,24 +2438,16 @@ function previewExSlot(letra){
     campoDiv.innerHTML = '<div style="color:#666;font-size:13px;padding:20px">Sem imagem disponível</div>';
   }
 
-  // objetivo e descrição
-  var objDiv = document.getElementById('mep-objetivo');
-  objDiv.innerHTML = ex.objetivo ? '<strong>Objetivo:</strong> '+ex.objetivo : '';
-
-  var descDiv = document.getElementById('mep-descricao');
-  descDiv.innerHTML = ex.descricao ? '<strong>Descrição:</strong><br>'+ex.descricao : '';
+  document.getElementById('mep-objetivo').innerHTML = ex.objetivo ? '<strong>Objetivo:</strong> '+ex.objetivo : '';
+  document.getElementById('mep-descricao').innerHTML = ex.descricao ? '<strong>Descrição:</strong><br>'+ex.descricao : '';
 
   openModal('modal-ex-preview');
 }
 
 function usarExPreview(){
-  // já está seleccionado no dropdown — só fecha o modal
   closeModal('modal-ex-preview');
-  if(_previewLetra){
-    // garantir que o slot fica actualizado
-    onPlanoSlotChange(_previewLetra);
-  }
-  _previewLetra = null;
+  if(_previewLetra && _previewExId) selectExDD(_previewLetra, _previewExId);
+  _previewLetra = null; _previewExId = null;
 }
 
 function getPlanoExercicios(){
